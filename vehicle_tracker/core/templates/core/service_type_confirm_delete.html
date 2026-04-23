@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Service Type</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Georgia, "Times New Roman", serif;
+            background: #f6f2ea;
+            color: #1f1f1f;
+        }
+
+        .page {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 2rem 1.25rem 3rem;
+        }
+
+        .card {
+            background: #fffdfa;
+            border: 1px solid #d8cdbd;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        .warning {
+            padding: 1rem;
+            border-radius: 10px;
+            background: #fbeaea;
+            border: 1px solid #d59696;
+            color: #8b1e1e;
+            margin: 1rem 0;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        .button-danger,
+        .button-secondary {
+            display: inline-block;
+            border: 0;
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            font: inherit;
+        }
+
+        .button-danger {
+            background: #8b1e1e;
+            color: white;
+        }
+
+        .button-secondary {
+            background: #d8cdbd;
+            color: #1f1f1f;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="card">
+            <h1>Delete Service Type</h1>
+            <p>You are about to delete <strong>{{ service_type.name }}</strong>.</p>
+            <div class="warning">
+                If this service type is already used in maintenance logs, the delete will be blocked.
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="button-row">
+                    <button class="button-danger" type="submit">Yes, Delete Service Type</button>
+                    <a class="button-secondary" href="{% url 'service_type_list' %}">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

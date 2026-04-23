@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Georgia, "Times New Roman", serif;
+            background: #f6f2ea;
+            color: #1f1f1f;
+        }
+
+        .page {
+            max-width: 1050px;
+            margin: 0 auto;
+            padding: 2rem 1.25rem 3rem;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #d8cdbd;
+        }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: 2rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #7a3e14;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .logout-form {
+            margin: 0;
+        }
+
+        .logout-button {
+            border: 0;
+            background: none;
+            padding: 0;
+            color: #7a3e14;
+            font: inherit;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .form-card,
+        .services-card {
+            background: #fffdfa;
+            border: 1px solid #d8cdbd;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .services-card {
+            margin-top: 1.5rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+
+        .form-row,
+        .service-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .form-row.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .service-list {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .service-row {
+            border: 1px solid #d8cdbd;
+            border-radius: 10px;
+            padding: 1rem;
+            background: #fdfaf4;
+        }
+
+        .service-row-grid {
+            display: grid;
+            grid-template-columns: minmax(200px, 1.3fr) minmax(140px, 0.7fr) minmax(220px, 1fr) auto;
+            gap: 0.75rem;
+            align-items: end;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0.75rem;
+            border: 1px solid #b7aa96;
+            border-radius: 8px;
+            font: inherit;
+            background: white;
+        }
+
+        .service-delete {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding-bottom: 0.35rem;
+        }
+
+        .service-delete input {
+            width: auto;
+            margin: 0;
+        }
+
+        .error-summary {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border: 1px solid #d59696;
+            border-radius: 10px;
+            background: #fbeaea;
+            color: #8b1e1e;
+        }
+
+        .message-list {
+            margin-bottom: 1rem;
+        }
+
+        .message {
+            padding: 0.85rem 1rem;
+            border-radius: 10px;
+            margin-bottom: 0.75rem;
+        }
+
+        .message.success {
+            background: #e4f1df;
+            border: 1px solid #b9d4ae;
+        }
+
+        .message.warning {
+            background: #fff3d6;
+            border: 1px solid #e2bf70;
+        }
+
+        .message.error {
+            background: #fbeaea;
+            border: 1px solid #d59696;
+            color: #8b1e1e;
+        }
+
+        .field-error,
+        .help-text {
+            font-size: 0.95rem;
+        }
+
+        .field-error {
+            color: #8b1e1e;
+        }
+
+        .help-text {
+            color: #6a6258;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        .button-primary,
+        .button-secondary {
+            display: inline-block;
+            border: 0;
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            font: inherit;
+        }
+
+        .button-primary {
+            background: #7a3e14;
+            color: white;
+        }
+
+        .button-secondary {
+            background: #d8cdbd;
+            color: #1f1f1f;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <div>
+                <h1>{{ page_title }}</h1>
+                {% if maintenance_log %}
+                    <p>Update the maintenance entry for {{ maintenance_log.vehicle }} from {{ maintenance_log.log_date|date:"M d, Y" }}.</p>
+                {% else %}
+                    <p>Record a maintenance visit and the services that were performed.</p>
+                {% endif %}
+            </div>
+            <div class="nav-links">
+                <a href="{% url 'dashboard' %}">Dashboard</a>
+                <a href="{% url 'maintenance_log_list' %}">Maintenance Logs</a>
+                <a href="{% url 'vehicle_list' %}">Vehicles</a>
+                <a href="{% url 'service_type_list' %}">Service Types</a>
+                <a href="/admin/">Admin</a>
+                <form class="logout-form" method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button class="logout-button" type="submit">Log Out</button>
+                </form>
+            </div>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="form-card">
+                {% if messages %}
+                    <div class="message-list">
+                        {% for message in messages %}
+                            <div class="message{% if message.tags %} {{ message.tags }}{% endif %}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% if form.non_field_errors or formset.non_form_errors %}
+                    <div class="error-summary">
+                        {{ form.non_field_errors }}
+                        {{ formset.non_form_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="form-grid">
+                    {% for field in form %}
+                        <div class="form-row{% if field.name == 'notes' %} full-width{% endif %}">
+                            <label for="{{ field.id_for_label }}">
+                                {{ field.label }}{% if field.field.required %} *{% endif %}
+                            </label>
+                            {{ field }}
+                            {% for error in field.errors %}
+                                <div class="field-error">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="services-card">
+                <h2>Services Performed</h2>
+                <p class="help-text">Add one row for each service included in this maintenance log. Leave unused rows blank.</p>
+
+                {{ formset.management_form }}
+
+                <div class="service-list">
+                    {% for service_form in formset %}
+                        <div class="service-row">
+                            {% for hidden_field in service_form.hidden_fields %}
+                                {{ hidden_field }}
+                            {% endfor %}
+
+                            <div class="service-row-grid">
+                                <div class="service-grid">
+                                    <label for="{{ service_form.service_type.id_for_label }}">
+                                        {{ service_form.service_type.label }}
+                                    </label>
+                                    {{ service_form.service_type }}
+                                    {% for error in service_form.service_type.errors %}
+                                        <div class="field-error">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="service-grid">
+                                    <label for="{{ service_form.cost.id_for_label }}">
+                                        {{ service_form.cost.label }}
+                                    </label>
+                                    {{ service_form.cost }}
+                                    {% for error in service_form.cost.errors %}
+                                        <div class="field-error">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="service-grid">
+                                    <label for="{{ service_form.notes.id_for_label }}">
+                                        {{ service_form.notes.label }}
+                                    </label>
+                                    {{ service_form.notes }}
+                                    {% for error in service_form.notes.errors %}
+                                        <div class="field-error">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                {% if service_form.DELETE %}
+                                    <label class="service-delete" for="{{ service_form.DELETE.id_for_label }}">
+                                        {{ service_form.DELETE }}
+                                        Remove
+                                    </label>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="button-row">
+                <button class="button-primary" type="submit">{{ submit_label }}</button>
+                <a class="button-secondary" href="{% url 'maintenance_log_list' %}">Cancel</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

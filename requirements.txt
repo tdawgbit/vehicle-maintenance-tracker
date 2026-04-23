@@ -1,3 +1,2 @@
-streamlit
+Django==6.0.4
 psycopg2-binary
-anthropic

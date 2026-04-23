@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            font-family: Georgia, "Times New Roman", serif;
+            background: linear-gradient(135deg, #efe5d5, #d7e3d1);
+            color: #1f1f1f;
+        }
+
+        .login-card {
+            width: min(420px, calc(100% - 2rem));
+            background: #fffdfa;
+            border: 1px solid #d8cdbd;
+            border-radius: 14px;
+            padding: 2rem;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+        }
+
+        h1 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+        }
+
+        p {
+            color: #6a6258;
+        }
+
+        form p {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.7rem;
+            box-sizing: border-box;
+            border: 1px solid #b7aa96;
+            border-radius: 8px;
+        }
+
+        button {
+            width: 100%;
+            border: 0;
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            background: #7a3e14;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .errorlist {
+            color: #8b1e1e;
+            padding-left: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h1>Vehicle Maintenance Tracker</h1>
+        <p>Sign in to view the dashboard and manage your records.</p>
+
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit">Log In</button>
+            {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+            {% endif %}
+        </form>
+    </div>
+</body>
+</html>
