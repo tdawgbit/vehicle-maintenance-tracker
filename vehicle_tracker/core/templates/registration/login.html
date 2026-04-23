@@ -1,86 +1,46 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
-    <style>
-        body {
-            margin: 0;
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            font-family: Georgia, "Times New Roman", serif;
-            background: linear-gradient(135deg, #efe5d5, #d7e3d1);
-            color: #1f1f1f;
-        }
+{% extends "core/base.html" %}
 
-        .login-card {
-            width: min(420px, calc(100% - 2rem));
-            background: #fffdfa;
-            border: 1px solid #d8cdbd;
-            border-radius: 14px;
-            padding: 2rem;
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
-        }
+{% block title %}Sign In | Vehicle Maintenance Tracker{% endblock %}
+{% block body_class %}login-view{% endblock %}
+{% block content_class %}centered-shell{% endblock %}
+{% block eyebrow %}Secure Access{% endblock %}
+{% block page_title %}Welcome Back{% endblock %}
+{% block page_subtitle %}
+    <p class="page-subtitle">Sign in to reach the dashboard, manage your vehicles, and keep your maintenance history moving.</p>
+{% endblock %}
 
-        h1 {
-            margin-top: 0;
-            margin-bottom: 0.5rem;
-        }
-
-        p {
-            color: #6a6258;
-        }
-
-        form p {
-            margin-bottom: 1rem;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.35rem;
-            font-weight: bold;
-        }
-
-        input {
-            width: 100%;
-            padding: 0.7rem;
-            box-sizing: border-box;
-            border: 1px solid #b7aa96;
-            border-radius: 8px;
-        }
-
-        button {
-            width: 100%;
-            border: 0;
-            border-radius: 8px;
-            padding: 0.85rem 1rem;
-            background: #7a3e14;
-            color: white;
-            font-size: 1rem;
-            cursor: pointer;
-        }
-
-        .errorlist {
-            color: #8b1e1e;
-            padding-left: 1rem;
-        }
-    </style>
-</head>
-<body>
-    <div class="login-card">
-        <h1>Vehicle Maintenance Tracker</h1>
-        <p>Sign in to view the dashboard and manage your records.</p>
+{% block content %}
+    <section class="surface panel">
+        {% if form.non_field_errors %}
+            <div class="error-summary">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
 
         <form method="post">
             {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit">Log In</button>
+
+            <div class="form-grid single-column">
+                {% for field in form %}
+                    <div class="form-row">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}{% if field.field.required %} *{% endif %}
+                        </label>
+                        {{ field }}
+                        {% for error in field.errors %}
+                            <div class="field-error">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+
             {% if next %}
                 <input type="hidden" name="next" value="{{ next }}">
             {% endif %}
+
+            <div class="button-row">
+                <button class="btn btn-primary" type="submit">Log In</button>
+            </div>
         </form>
-    </div>
-</body>
-</html>
+    </section>
+{% endblock %}

@@ -1,224 +1,74 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Service Types</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: Georgia, "Times New Roman", serif;
-            background: #f6f2ea;
-            color: #1f1f1f;
-        }
+{% extends "core/base.html" %}
 
-        .page {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 2rem 1.25rem 3rem;
-        }
+{% block title %}Service Types | Vehicle Maintenance Tracker{% endblock %}
+{% block eyebrow %}Service Library{% endblock %}
+{% block page_title %}Service Types{% endblock %}
+{% block page_subtitle %}
+    <p class="page-subtitle">Build a reusable service catalog so logging maintenance stays quick, consistent, and easier to analyze.</p>
+{% endblock %}
 
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid #d8cdbd;
-        }
-
-        .topbar h1 {
-            margin: 0;
-            font-size: 2rem;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .nav-links a {
-            color: #7a3e14;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .logout-form {
-            margin: 0;
-        }
-
-        .logout-button {
-            border: 0;
-            background: none;
-            padding: 0;
-            color: #7a3e14;
-            font: inherit;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .button-link,
-        .button-danger,
-        .button-secondary {
-            display: inline-block;
-            border: 0;
-            border-radius: 8px;
-            padding: 0.7rem 1rem;
-            cursor: pointer;
-            text-decoration: none;
-            font: inherit;
-        }
-
-        .button-link {
-            background: #7a3e14;
-            color: white;
-        }
-
-        .button-secondary {
-            background: #d8cdbd;
-            color: #1f1f1f;
-        }
-
-        .button-danger {
-            background: #8b1e1e;
-            color: white;
-        }
-
-        .message-list {
-            margin-bottom: 1rem;
-        }
-
-        .message {
-            padding: 0.85rem 1rem;
-            border-radius: 10px;
-            margin-bottom: 0.75rem;
-        }
-
-        .message.success {
-            background: #e4f1df;
-            border: 1px solid #b9d4ae;
-        }
-
-        .message.error {
-            background: #fbeaea;
-            border: 1px solid #d59696;
-            color: #8b1e1e;
-        }
-
-        .service-list {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .service-card {
-            background: #fffdfa;
-            border: 1px solid #d8cdbd;
-            border-radius: 12px;
-            padding: 1rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-
-        .service-card h2 {
-            margin-top: 0;
-            margin-bottom: 0.75rem;
-        }
-
-        .service-meta,
-        .service-description {
-            margin: 0 0 1rem;
-        }
-
-        .card-actions {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-
-        .empty-state {
-            background: #fffdfa;
-            border: 1px solid #d8cdbd;
-            border-radius: 12px;
-            padding: 1rem;
-        }
-    </style>
-</head>
-<body>
-    <div class="page">
-        <div class="topbar">
+{% block content %}
+    <section class="surface panel">
+        <div class="section-header">
             <div>
-                <h1>Manage Service Types</h1>
-                <p>View, add, edit, and delete the services used in maintenance logs.</p>
+                <h2 class="section-title">Maintenance Services</h2>
+                <p class="section-subtitle">Define the service work you want available in maintenance logs.</p>
             </div>
-            <div class="nav-links">
-                <a href="{% url 'dashboard' %}">Dashboard</a>
-                <a href="{% url 'maintenance_log_list' %}">Maintenance Logs</a>
-                <a href="{% url 'vehicle_list' %}">Vehicles</a>
-                <a href="/admin/">Admin</a>
-                <form class="logout-form" method="post" action="{% url 'logout' %}">
-                    {% csrf_token %}
-                    <button class="logout-button" type="submit">Log Out</button>
-                </form>
+            <div class="actions-row">
+                <span class="count-chip">{{ service_types|length }} service type{{ service_types|length|pluralize }}</span>
+                <a class="btn btn-primary" href="{% url 'service_type_create' %}">Add Service Type</a>
             </div>
         </div>
-
-        <div class="actions">
-            <p>{{ service_types|length }} service type{{ service_types|length|pluralize }}</p>
-            <a class="button-link" href="{% url 'service_type_create' %}">Add Service Type</a>
-        </div>
-
-        {% if messages %}
-            <div class="message-list">
-                {% for message in messages %}
-                    <div class="message{% if message.tags %} {{ message.tags }}{% endif %}">{{ message }}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
 
         {% if service_types %}
-            <div class="service-list">
+            <div class="card-grid stagger-grid">
                 {% for service_type in service_types %}
-                    <div class="service-card">
-                        <h2>{{ service_type.name }}</h2>
-                        <p class="service-meta">
-                            <strong>Default Interval:</strong>
-                            {% if service_type.default_interval_miles %}
-                                {{ service_type.default_interval_miles }} mi
-                            {% else %}
-                                -
-                            {% endif %}
-                            or
-                            {% if service_type.default_interval_days %}
-                                {{ service_type.default_interval_days }} days
-                            {% else %}
-                                -
-                            {% endif %}
-                        </p>
-                        <p class="service-description">
-                            <strong>Description:</strong> {{ service_type.description|default_if_none:"-" }}
-                        </p>
-                        <div class="card-actions">
-                            <a class="button-secondary" href="{% url 'service_type_update' service_type.id %}">Edit</a>
-                            <a class="button-danger" href="{% url 'service_type_delete' service_type.id %}">Delete</a>
+                    <article class="record-card">
+                        <div class="record-header">
+                            <div>
+                                <h3 class="card-title">{{ service_type.name }}</h3>
+                                <p class="card-subtitle">Reusable across maintenance logs and dashboards.</p>
+                            </div>
+                            <span class="badge badge-warm">Service</span>
                         </div>
-                    </div>
+
+                        <div class="meta-grid">
+                            <div class="meta-item">
+                                <span class="meta-label">Mileage Interval</span>
+                                <span class="meta-value">
+                                    {% if service_type.default_interval_miles %}
+                                        {{ service_type.default_interval_miles }} mi
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Day Interval</span>
+                                <span class="meta-value">
+                                    {% if service_type.default_interval_days %}
+                                        {{ service_type.default_interval_days }} days
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        <p class="detail-copy"><strong>Description:</strong> {{ service_type.description|default_if_none:"-" }}</p>
+
+                        <div class="record-actions">
+                            <a class="btn btn-secondary" href="{% url 'service_type_update' service_type.id %}">Edit</a>
+                            <a class="btn btn-danger" href="{% url 'service_type_delete' service_type.id %}">Delete</a>
+                        </div>
+                    </article>
                 {% endfor %}
             </div>
         {% else %}
             <div class="empty-state">
-                <p>No service types added yet.</p>
+                <h3 class="card-title">No service types yet</h3>
+                <p class="detail-copy">Add service definitions like Oil Change or Tire Rotation to speed up your maintenance logs.</p>
             </div>
         {% endif %}
-    </div>
-</body>
-</html>
+    </section>
+{% endblock %}

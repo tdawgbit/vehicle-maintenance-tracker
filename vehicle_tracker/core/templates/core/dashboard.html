@@ -1,229 +1,164 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vehicle Maintenance Tracker</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: Georgia, "Times New Roman", serif;
-            background: #f6f2ea;
-            color: #1f1f1f;
-        }
+{% extends "core/base.html" %}
 
-        .page {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 2rem 1.25rem 3rem;
-        }
+{% block title %}Dashboard | Vehicle Maintenance Tracker{% endblock %}
+{% block eyebrow %}Operations Overview{% endblock %}
+{% block page_title %}Keep Every Service In Motion{% endblock %}
+{% block page_subtitle %}
+    <p class="page-subtitle">Welcome back, {{ request.user.username }}. Track your garage, recent work, and total spend from one cleaner control room.</p>
+{% endblock %}
 
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid #d8cdbd;
-        }
-
-        .topbar h1 {
-            margin: 0;
-            font-size: 2rem;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .nav-links a {
-            color: #7a3e14;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .logout-form {
-            margin: 0;
-        }
-
-        .logout-button {
-            border: 0;
-            background: none;
-            padding: 0;
-            color: #7a3e14;
-            font: inherit;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .metrics {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .metric-card,
-        .status-card,
-        .log-card {
-            background: #fffdfa;
-            border: 1px solid #d8cdbd;
-            border-radius: 12px;
-            padding: 1rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-
-        .metric-label {
-            margin: 0 0 0.5rem;
-            color: #6a6258;
-            font-size: 0.95rem;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        .metric-value {
-            margin: 0;
-            font-size: 2rem;
-            font-weight: bold;
-        }
-
-        .section {
-            margin-top: 2rem;
-        }
-
-        .section h2 {
-            margin-bottom: 1rem;
-            font-size: 1.5rem;
-        }
-
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1rem;
-        }
-
-        .muted {
-            color: #6a6258;
-        }
-
-        .log-list {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .log-title {
-            margin: 0 0 0.5rem;
-            font-size: 1.1rem;
-        }
-
-        .log-meta,
-        .status-card p {
-            margin: 0.35rem 0;
-        }
-    </style>
-</head>
-<body>
-    <div class="page">
-        <div class="topbar">
+{% block content %}
+    <section class="surface panel">
+        <div class="section-header">
             <div>
-                <h1>Vehicle Maintenance Tracker</h1>
-                <p class="muted">Welcome, {{ request.user.username }}.</p>
+                <h2 class="section-title">Snapshot</h2>
+                <p class="section-subtitle">The fastest way to see how active your garage is today.</p>
             </div>
-            <div class="nav-links">
-                <a href="{% url 'dashboard' %}">Dashboard</a>
-                <a href="{% url 'maintenance_log_list' %}">Maintenance Logs</a>
-                <a href="{% url 'vehicle_list' %}">Vehicles</a>
-                <a href="{% url 'service_type_list' %}">Service Types</a>
-                <a href="/admin/">Admin</a>
-                <form class="logout-form" method="post" action="{% url 'logout' %}">
-                    {% csrf_token %}
-                    <button class="logout-button" type="submit">Log Out</button>
-                </form>
+            <div class="actions-row">
+                <a class="btn btn-secondary" href="{% url 'vehicle_create' %}">Add Vehicle</a>
+                <a class="btn btn-secondary" href="{% url 'service_type_create' %}">Add Service Type</a>
+                <a class="btn btn-primary" href="{% url 'maintenance_log_create' %}">Log Service</a>
             </div>
         </div>
 
-        <div class="metrics">
-            <div class="metric-card">
+        <div class="card-grid stagger-grid">
+            <article class="metric-card">
                 <p class="metric-label">Vehicles</p>
                 <p class="metric-value">{{ total_vehicles }}</p>
-            </div>
-            <div class="metric-card">
+                <p class="metric-note">Every active vehicle currently tracked in your garage.</p>
+            </article>
+            <article class="metric-card">
                 <p class="metric-label">Maintenance Logs</p>
                 <p class="metric-value">{{ total_logs }}</p>
-            </div>
-            <div class="metric-card">
-                <p class="metric-label">Total Spent</p>
+                <p class="metric-note">Service visits recorded across all vehicles.</p>
+            </article>
+            <article class="metric-card">
+                <p class="metric-label">Total Spend</p>
                 <p class="metric-value">${{ total_spent|floatformat:2 }}</p>
-            </div>
-            <div class="metric-card">
+                <p class="metric-note">Combined spend recorded through the maintenance history.</p>
+            </article>
+            <article class="metric-card">
                 <p class="metric-label">Service Types</p>
                 <p class="metric-value">{{ total_service_types }}</p>
-            </div>
+                <p class="metric-note">Reusable service definitions ready for future logs.</p>
+            </article>
         </div>
+    </section>
 
-        <section class="section">
-            <h2>Vehicle Status</h2>
+    <div class="dashboard-grid">
+        <section class="surface panel">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Vehicle Status</h2>
+                    <p class="section-subtitle">Spot which vehicles have recent history and which ones still need their first entry.</p>
+                </div>
+                <a class="btn btn-secondary" href="{% url 'vehicle_list' %}">View Vehicles</a>
+            </div>
+
             {% if vehicle_statuses %}
-                <div class="status-grid">
+                <div class="card-grid stagger-grid">
                     {% for status in vehicle_statuses %}
-                        <div class="status-card">
-                            <h3>{{ status.vehicle_label }}</h3>
-                            {% if status.latest_log %}
-                                <p><strong>Last serviced:</strong> {{ status.latest_log.log_date|date:"M d, Y" }}</p>
-                                <p><strong>Mileage:</strong>
-                                    {% if status.latest_log.mileage_at_service %}
-                                        {{ status.latest_log.mileage_at_service }} mi
+                        <article class="record-card">
+                            <div class="record-header">
+                                <div>
+                                    <h3 class="card-title">{{ status.vehicle_label }}</h3>
+                                    {% if status.latest_log %}
+                                        <p class="card-subtitle">Latest entry on {{ status.latest_log.log_date|date:"M d, Y" }}</p>
                                     {% else %}
-                                        -
+                                        <p class="card-subtitle">No maintenance history recorded yet.</p>
                                     {% endif %}
-                                </p>
-                                <p><strong>Services:</strong> {{ status.latest_services|default:"-" }}</p>
+                                </div>
+                                {% if status.latest_log %}
+                                    <span class="badge">Active History</span>
+                                {% else %}
+                                    <span class="badge badge-warm">Needs First Log</span>
+                                {% endif %}
+                            </div>
+
+                            {% if status.latest_log %}
+                                <div class="meta-grid">
+                                    <div class="meta-item">
+                                        <span class="meta-label">Last Serviced</span>
+                                        <span class="meta-value">{{ status.latest_log.log_date|date:"M d, Y" }}</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <span class="meta-label">Mileage</span>
+                                        <span class="meta-value">
+                                            {% if status.latest_log.mileage_at_service != None %}
+                                                {{ status.latest_log.mileage_at_service }} mi
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                                <p class="detail-copy"><strong>Services:</strong> {{ status.latest_services|default:"-" }}</p>
                             {% else %}
-                                <p class="muted">No service logged yet.</p>
+                                <p class="detail-copy">Add a maintenance log to give this vehicle a service timeline and cost history.</p>
                             {% endif %}
-                        </div>
+                        </article>
                     {% endfor %}
                 </div>
             {% else %}
-                <p class="muted">No vehicles added yet.</p>
+                <div class="empty-state">
+                    <h3 class="card-title">No vehicles yet</h3>
+                    <p class="detail-copy">Add your first vehicle to start building out the dashboard.</p>
+                </div>
             {% endif %}
         </section>
 
-        <section class="section">
-            <h2>Recent Maintenance Logs</h2>
+        <section class="surface panel">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Recent Maintenance</h2>
+                    <p class="section-subtitle">The latest service work recorded across your collection.</p>
+                </div>
+                <a class="btn btn-secondary" href="{% url 'maintenance_log_list' %}">History</a>
+            </div>
+
             {% if recent_logs %}
-                <div class="log-list">
+                <div class="record-list stagger-grid">
                     {% for log in recent_logs %}
-                        <div class="log-card">
-                            <h3 class="log-title">{{ log.vehicle_label }}</h3>
-                            <p class="log-meta"><strong>Date:</strong> {{ log.log_date|date:"M d, Y" }}</p>
-                            <p class="log-meta"><strong>Mileage:</strong>
-                                {% if log.mileage_at_service %}
-                                    {{ log.mileage_at_service }} mi
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </p>
-                            <p class="log-meta"><strong>Shop:</strong> {{ log.shop_name|default:"-" }}</p>
-                            <p class="log-meta"><strong>Total Cost:</strong>
+                        <article class="record-card">
+                            <div class="record-header">
+                                <div>
+                                    <h3 class="card-title">{{ log.vehicle_label }}</h3>
+                                    <p class="card-subtitle">{{ log.log_date|date:"M d, Y" }}</p>
+                                </div>
                                 {% if log.total_cost != None %}
-                                    ${{ log.total_cost|floatformat:2 }}
+                                    <span class="badge badge-warm">${{ log.total_cost|floatformat:2 }}</span>
                                 {% else %}
-                                    -
+                                    <span class="badge">No Cost</span>
                                 {% endif %}
-                            </p>
-                            <p class="log-meta"><strong>Services:</strong> {{ log.services|default:"-" }}</p>
-                        </div>
+                            </div>
+
+                            <div class="meta-grid">
+                                <div class="meta-item">
+                                    <span class="meta-label">Mileage</span>
+                                    <span class="meta-value">
+                                        {% if log.mileage_at_service != None %}
+                                            {{ log.mileage_at_service }} mi
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Shop</span>
+                                    <span class="meta-value">{{ log.shop_name|default:"-" }}</span>
+                                </div>
+                            </div>
+
+                            <p class="detail-copy"><strong>Services:</strong> {{ log.services|default:"-" }}</p>
+                        </article>
                     {% endfor %}
                 </div>
             {% else %}
-                <p class="muted">No maintenance logs yet.</p>
+                <div class="empty-state">
+                    <h3 class="card-title">No service history yet</h3>
+                    <p class="detail-copy">Once you log a maintenance visit, the freshest activity will show up here.</p>
+                </div>
             {% endif %}
         </section>
     </div>
-</body>
-</html>
+{% endblock %}

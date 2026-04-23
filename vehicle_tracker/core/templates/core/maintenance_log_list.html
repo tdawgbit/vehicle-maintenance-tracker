@@ -1,331 +1,120 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maintenance History</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: Georgia, "Times New Roman", serif;
-            background: #f6f2ea;
-            color: #1f1f1f;
-        }
+{% extends "core/base.html" %}
 
-        .page {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 2rem 1.25rem 3rem;
-        }
+{% block title %}Maintenance History | Vehicle Maintenance Tracker{% endblock %}
+{% block eyebrow %}Service Timeline{% endblock %}
+{% block page_title %}Maintenance History{% endblock %}
+{% block page_subtitle %}
+    <p class="page-subtitle">Review service activity across the whole garage, filter it fast, and jump into edits without losing context.</p>
+{% endblock %}
 
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid #d8cdbd;
-        }
-
-        .topbar h1 {
-            margin: 0;
-            font-size: 2rem;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .nav-links a {
-            color: #7a3e14;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .logout-form {
-            margin: 0;
-        }
-
-        .logout-button {
-            border: 0;
-            background: none;
-            padding: 0;
-            color: #7a3e14;
-            font: inherit;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .actions,
-        .filter-card,
-        .log-card,
-        .empty-state {
-            background: #fffdfa;
-            border: 1px solid #d8cdbd;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-
-        .actions,
-        .filter-card,
-        .empty-state {
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .button-link,
-        .button-secondary,
-        .button-danger {
-            display: inline-block;
-            border: 0;
-            border-radius: 8px;
-            padding: 0.7rem 1rem;
-            cursor: pointer;
-            text-decoration: none;
-            font: inherit;
-        }
-
-        .button-link {
-            background: #7a3e14;
-            color: white;
-        }
-
-        .button-secondary {
-            background: #d8cdbd;
-            color: #1f1f1f;
-        }
-
-        .button-danger {
-            background: #8b1e1e;
-            color: white;
-        }
-
-        .filter-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-
-        .filter-row {
-            display: flex;
-            flex-direction: column;
-            gap: 0.35rem;
-        }
-
-        label {
-            font-weight: bold;
-        }
-
-        input,
-        select {
-            width: 100%;
-            box-sizing: border-box;
-            padding: 0.75rem;
-            border: 1px solid #b7aa96;
-            border-radius: 8px;
-            font: inherit;
-            background: white;
-        }
-
-        .button-row {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            margin-top: 1rem;
-        }
-
-        .message-list {
-            margin-bottom: 1rem;
-        }
-
-        .message {
-            padding: 0.85rem 1rem;
-            border-radius: 10px;
-            margin-bottom: 0.75rem;
-        }
-
-        .message.success {
-            background: #e4f1df;
-            border: 1px solid #b9d4ae;
-        }
-
-        .message.warning {
-            background: #fff3d6;
-            border: 1px solid #e2bf70;
-        }
-
-        .message.error {
-            background: #fbeaea;
-            border: 1px solid #d59696;
-            color: #8b1e1e;
-        }
-
-        .log-list {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .log-card {
-            padding: 1rem;
-        }
-
-        .log-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 1rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .log-header h2 {
-            margin: 0;
-            font-size: 1.2rem;
-        }
-
-        .log-meta {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 0.75rem 1rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .log-meta p,
-        .log-notes,
-        .muted {
-            margin: 0;
-        }
-
-        .card-actions {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-    </style>
-</head>
-<body>
-    <div class="page">
-        <div class="topbar">
+{% block content %}
+    <section class="surface panel">
+        <div class="section-header">
             <div>
-                <h1>Maintenance History</h1>
-                <p>Filter, review, edit, and delete maintenance logs.</p>
-            </div>
-            <div class="nav-links">
-                <a href="{% url 'dashboard' %}">Dashboard</a>
-                <a href="{% url 'maintenance_log_list' %}">Maintenance Logs</a>
-                <a href="{% url 'vehicle_list' %}">Vehicles</a>
-                <a href="{% url 'service_type_list' %}">Service Types</a>
-                <a href="/admin/">Admin</a>
-                <form class="logout-form" method="post" action="{% url 'logout' %}">
-                    {% csrf_token %}
-                    <button class="logout-button" type="submit">Log Out</button>
-                </form>
+                <h2 class="section-title">Filters</h2>
+                <p class="section-subtitle">Tighten the timeline by vehicle or by date range.</p>
             </div>
         </div>
 
-        <div class="actions">
-            <p>{{ logs|length }} maintenance log{{ logs|length|pluralize }}</p>
-            <a class="button-link" href="{% url 'maintenance_log_create' %}">Add Maintenance Log</a>
-        </div>
-
-        {% if messages %}
-            <div class="message-list">
-                {% for message in messages %}
-                    <div class="message{% if message.tags %} {{ message.tags }}{% endif %}">{{ message }}</div>
-                {% endfor %}
+        <form method="get">
+            <div class="filter-grid">
+                <div class="filter-row">
+                    <label for="id_vehicle">Vehicle</label>
+                    <select id="id_vehicle" name="vehicle">
+                        <option value="">All Vehicles</option>
+                        {% for vehicle in vehicles %}
+                            <option value="{{ vehicle.id }}"{% if selected_vehicle == vehicle.id|stringformat:"s" %} selected{% endif %}>
+                                {{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}{% if vehicle.nickname %} - "{{ vehicle.nickname }}"{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-row">
+                    <label for="id_date_from">From</label>
+                    <input id="id_date_from" type="date" name="date_from" value="{{ date_from }}">
+                </div>
+                <div class="filter-row">
+                    <label for="id_date_to">To</label>
+                    <input id="id_date_to" type="date" name="date_to" value="{{ date_to }}">
+                </div>
             </div>
-        {% endif %}
 
-        <div class="filter-card">
-            <form method="get">
-                <div class="filter-grid">
-                    <div class="filter-row">
-                        <label for="id_vehicle">Vehicle</label>
-                        <select id="id_vehicle" name="vehicle">
-                            <option value="">All Vehicles</option>
-                            {% for vehicle in vehicles %}
-                                <option value="{{ vehicle.id }}"{% if selected_vehicle == vehicle.id|stringformat:"s" %} selected{% endif %}>
-                                    {{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}{% if vehicle.nickname %} - "{{ vehicle.nickname }}"{% endif %}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="filter-row">
-                        <label for="id_date_from">From</label>
-                        <input id="id_date_from" type="date" name="date_from" value="{{ date_from }}">
-                    </div>
-                    <div class="filter-row">
-                        <label for="id_date_to">To</label>
-                        <input id="id_date_to" type="date" name="date_to" value="{{ date_to }}">
-                    </div>
-                </div>
-                <div class="button-row">
-                    <button class="button-link" type="submit">Apply Filters</button>
-                    <a class="button-secondary" href="{% url 'maintenance_log_list' %}">Clear</a>
-                </div>
-            </form>
+            <div class="button-row">
+                <button class="btn btn-primary" type="submit">Apply Filters</button>
+                <a class="btn btn-secondary" href="{% url 'maintenance_log_list' %}">Clear</a>
+            </div>
+        </form>
+    </section>
+
+    <section class="surface panel">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Logged Visits</h2>
+                <p class="section-subtitle">Every maintenance entry, with services, mileage, and cost details in one scrollable feed.</p>
+            </div>
+            <div class="actions-row">
+                <span class="count-chip">{{ logs|length }} maintenance log{{ logs|length|pluralize }}</span>
+                <a class="btn btn-primary" href="{% url 'maintenance_log_create' %}">Add Maintenance Log</a>
+            </div>
         </div>
 
         {% if logs %}
-            <div class="log-list">
+            <div class="record-list stagger-grid">
                 {% for log in logs %}
-                    <div class="log-card">
-                        <div class="log-header">
+                    <article class="record-card">
+                        <div class="record-header">
                             <div>
-                                <h2>{{ log.vehicle }}</h2>
-                                <p class="muted">{{ log.log_date|date:"M d, Y" }}</p>
+                                <h3 class="card-title">{{ log.vehicle }}</h3>
+                                <p class="card-subtitle">{{ log.log_date|date:"M d, Y" }}</p>
                             </div>
-                            <div class="card-actions">
-                                <a class="button-secondary" href="{% url 'maintenance_log_update' log.id %}">Edit</a>
-                                <a class="button-danger" href="{% url 'maintenance_log_delete' log.id %}">Delete</a>
+                            {% if log.total_cost != None %}
+                                <span class="badge badge-warm">${{ log.total_cost|floatformat:2 }}</span>
+                            {% else %}
+                                <span class="badge">No Cost</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="meta-grid">
+                            <div class="meta-item">
+                                <span class="meta-label">Mileage</span>
+                                <span class="meta-value">
+                                    {% if log.mileage_at_service != None %}
+                                        {{ log.mileage_at_service }} mi
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Shop</span>
+                                <span class="meta-value">{{ log.shop_name|default:"-" }}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Services</span>
+                                <span class="meta-value">
+                                    {% for log_service in log.log_services.all %}
+                                        {{ log_service.service_type.name }}{% if not forloop.last %}, {% endif %}
+                                    {% empty %}
+                                        -
+                                    {% endfor %}
+                                </span>
                             </div>
                         </div>
 
-                        <div class="log-meta">
-                            <p><strong>Mileage:</strong>
-                                {% if log.mileage_at_service != None %}
-                                    {{ log.mileage_at_service }} mi
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </p>
-                            <p><strong>Shop:</strong> {{ log.shop_name|default:"-" }}</p>
-                            <p><strong>Total Cost:</strong>
-                                {% if log.total_cost != None %}
-                                    ${{ log.total_cost|floatformat:2 }}
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </p>
-                            <p><strong>Services:</strong>
-                                {% for log_service in log.log_services.all %}
-                                    {{ log_service.service_type.name }}{% if not forloop.last %}, {% endif %}
-                                {% empty %}
-                                    -
-                                {% endfor %}
-                            </p>
-                        </div>
+                        <p class="detail-copy"><strong>Notes:</strong> {{ log.notes|default:"-" }}</p>
 
-                        <p class="log-notes"><strong>Notes:</strong> {{ log.notes|default:"-" }}</p>
-                    </div>
+                        <div class="record-actions">
+                            <a class="btn btn-secondary" href="{% url 'maintenance_log_update' log.id %}">Edit</a>
+                            <a class="btn btn-danger" href="{% url 'maintenance_log_delete' log.id %}">Delete</a>
+                        </div>
+                    </article>
                 {% endfor %}
             </div>
         {% else %}
             <div class="empty-state">
-                <p>No maintenance logs found.</p>
+                <h3 class="card-title">No maintenance logs found</h3>
+                <p class="detail-copy">Try widening your filters or create a new log to start building out the timeline.</p>
             </div>
         {% endif %}
-    </div>
-</body>
-</html>
+    </section>
+{% endblock %}
