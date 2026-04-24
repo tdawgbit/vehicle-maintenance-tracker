@@ -1,2 +1,5 @@
 Django==6.0.4
+gunicorn
+Pillow
 psycopg2-binary
+whitenoise[brotli]

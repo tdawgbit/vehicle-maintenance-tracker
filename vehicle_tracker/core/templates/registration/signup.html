@@ -1,12 +1,12 @@
 {% extends "core/base.html" %}
 
-{% block title %}Sign In | Vehicle Maintenance Tracker{% endblock %}
+{% block title %}Create Account | RevLog{% endblock %}
 {% block body_class %}login-view{% endblock %}
 {% block content_class %}centered-shell{% endblock %}
-{% block eyebrow %}Secure Access{% endblock %}
-{% block page_title %}Welcome Back{% endblock %}
+{% block eyebrow %}New Account{% endblock %}
+{% block page_title %}Join RevLog{% endblock %}
 {% block page_subtitle %}
-    <p class="page-subtitle">Sign in to reach the dashboard, manage your vehicles, and keep your maintenance history moving.</p>
+    <p class="page-subtitle">Create an account to sign in, reach the dashboard, and start using the shared maintenance tracker right away.</p>
 {% endblock %}
 
 {% block content %}
@@ -27,6 +27,9 @@
                             {{ field.label }}{% if field.field.required %} *{% endif %}
                         </label>
                         {{ field }}
+                        {% if field.help_text %}
+                            <div class="help-text">{{ field.help_text|safe }}</div>
+                        {% endif %}
                         {% for error in field.errors %}
                             <div class="field-error">{{ error }}</div>
                         {% endfor %}
@@ -39,8 +42,8 @@
             {% endif %}
 
             <div class="button-row">
-                <button class="btn btn-primary" type="submit">Log In</button>
-                <a class="btn btn-secondary" href="{% url 'signup' %}{% if next %}?next={{ next|urlencode }}{% endif %}">Create Account</a>
+                <button class="btn btn-primary" type="submit">Create Account</button>
+                <a class="btn btn-secondary" href="{% url 'login' %}{% if next %}?next={{ next|urlencode }}{% endif %}">Back to Sign In</a>
             </div>
         </form>
     </section>

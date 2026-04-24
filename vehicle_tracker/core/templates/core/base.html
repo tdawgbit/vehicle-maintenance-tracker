@@ -799,7 +799,13 @@
                             <span class="user-chip">Signed in as {{ request.user.username }}</span>
                         </div>
                     {% else %}
-                        <span class="status-chip">Secure local sign-in</span>
+                        <div class="hero-side">
+                            <div class="nav-cluster">
+                                <a class="nav-pill{% if current == 'login' %} is-active{% endif %}" href="{% url 'login' %}">Sign In</a>
+                                <a class="nav-pill{% if current == 'signup' %} is-active{% endif %}" href="{% url 'signup' %}">Create Account</a>
+                            </div>
+                            <span class="status-chip">Secure local sign-in</span>
+                        </div>
                     {% endif %}
                 </div>
             </header>

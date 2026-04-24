@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 from decimal import Decimal
-from io import StringIO
+from io import BytesIO, StringIO
 from pathlib import Path
 import shutil
 
@@ -9,6 +9,7 @@ from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
+from PIL import Image
 
 from .models import LogService, MaintenanceLog, ServiceType, Vehicle, VehicleType
 
@@ -37,6 +38,29 @@ class TestCoreViews(TestCase):
     def create_service_type(self, *, name="Oil Change"):
         return ServiceType.objects.create(name=name)
 
+    def build_uploaded_photo(
+        self,
+        *,
+        filename="garage-hero.jpg",
+        image_format="JPEG",
+        size=(1400, 1050),
+        quality=95,
+        color=(48, 90, 120),
+    ):
+        image = Image.new("RGB", size, color=color)
+        output = BytesIO()
+        save_kwargs = {"format": image_format}
+
+        if image_format in {"JPEG", "WEBP"}:
+            save_kwargs["quality"] = quality
+
+        image.save(output, **save_kwargs)
+        return SimpleUploadedFile(
+            filename,
+            output.getvalue(),
+            content_type=f"image/{image_format.lower()}",
+        )
+
     def build_formset_payload(self, rows):
         payload = {
             "services-TOTAL_FORMS": str(len(rows)),
@@ -58,6 +82,33 @@ class TestCoreViews(TestCase):
             response,
             f"{reverse('login')}?next={reverse('dashboard')}",
         )
+
+    def test_signup_page_loads(self):
+        response = self.client.get(reverse("signup"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Join RevLog")
+
+    def test_signup_creates_user_and_logs_them_in(self):
+        payload = {
+            "username": "casey",
+            "password1": "RevLogPass123!",
+            "password2": "RevLogPass123!",
+        }
+
+        response = self.client.post(reverse("signup"), payload, follow=True)
+
+        self.assertRedirects(response, reverse("dashboard"))
+        self.assertTrue(get_user_model().objects.filter(username="casey").exists())
+        dashboard_response = self.client.get(reverse("dashboard"))
+        self.assertEqual(dashboard_response.status_code, 200)
+
+    def test_authenticated_user_is_redirected_away_from_signup(self):
+        self.login()
+
+        response = self.client.get(reverse("signup"))
+
+        self.assertRedirects(response, reverse("dashboard"))
 
     def test_maintenance_log_create_redirects_until_dependencies_exist(self):
         self.login()
@@ -112,6 +163,8 @@ class TestCoreViews(TestCase):
         self.assertEqual(maintenance_log.shop_name, "Corner Garage")
         self.assertEqual(maintenance_log.notes, "Changed oil and rotated tires.")
         self.assertEqual(maintenance_log.total_cost, Decimal("149.99"))
+        vehicle.refresh_from_db()
+        self.assertEqual(vehicle.current_mileage, 30123)
 
         log_services = list(
             maintenance_log.log_services.order_by("service_type__name").values_list(
@@ -188,14 +241,40 @@ class TestCoreViews(TestCase):
         self.assertContains(response, reverse("maintenance_log_update", args=[second_log.pk]))
         self.assertNotContains(response, reverse("maintenance_log_update", args=[first_log.pk]))
 
+    def test_maintenance_log_create_does_not_lower_vehicle_current_mileage(self):
+        self.login()
+        vehicle = self.create_vehicle()
+        oil_change = self.create_service_type(name="Oil Change")
+
+        payload = {
+            "vehicle": str(vehicle.pk),
+            "log_date": "2026-04-10",
+            "mileage_at_service": "24000",
+            "shop_name": "Garage",
+            "total_cost": "55.00",
+            "notes": "",
+        }
+        payload.update(
+            self.build_formset_payload(
+                [
+                    {
+                        "service_type": str(oil_change.pk),
+                        "notes": "",
+                    },
+                ]
+            )
+        )
+
+        response = self.client.post(reverse("maintenance_log_create"), payload)
+
+        self.assertRedirects(response, reverse("maintenance_log_list"))
+        vehicle.refresh_from_db()
+        self.assertEqual(vehicle.current_mileage, 25000)
+
     def test_vehicle_create_saves_uploaded_photo(self):
         self.login()
         vehicle_type = VehicleType.objects.create(name="SUV")
-        photo = SimpleUploadedFile(
-            "garage-hero.jpg",
-            b"fake-image-content",
-            content_type="image/jpeg",
-        )
+        photo = self.build_uploaded_photo(filename="garage-hero.jpg")
 
         payload = {
             "year": "2022",
@@ -225,6 +304,71 @@ class TestCoreViews(TestCase):
                 self.assertTrue(Path(vehicle.photo.path).exists())
         finally:
             shutil.rmtree(media_root, ignore_errors=True)
+
+    def test_vehicle_create_resizes_large_photo_dimensions(self):
+        self.login()
+        vehicle_type = VehicleType.objects.create(name="Coupe")
+        photo = self.build_uploaded_photo(
+            filename="track-day.jpg",
+            size=(4200, 2800),
+        )
+
+        payload = {
+            "year": "2023",
+            "make": "Porsche",
+            "model": "911",
+            "nickname": "Track Day",
+            "type": str(vehicle_type.pk),
+            "color": "Silver",
+            "current_mileage": "6789",
+            "vin": "WP0ZZZ99ZPS123456",
+            "notes": "Fresh detail.",
+            "photo": photo,
+        }
+
+        media_root = Path(__file__).resolve().parent / "test_media_uploads"
+        (media_root / "vehicle_photos").mkdir(parents=True, exist_ok=True)
+
+        try:
+            with self.settings(MEDIA_ROOT=media_root):
+                response = self.client.post(reverse("vehicle_create"), payload)
+
+                self.assertRedirects(response, reverse("vehicle_list"))
+
+                vehicle = Vehicle.objects.get()
+                with Image.open(vehicle.photo.path) as saved_photo:
+                    self.assertLessEqual(saved_photo.width, 2400)
+                    self.assertLessEqual(saved_photo.height, 2400)
+        finally:
+            shutil.rmtree(media_root, ignore_errors=True)
+
+    def test_vehicle_create_rejects_photo_over_20_mb(self):
+        self.login()
+        vehicle_type = VehicleType.objects.create(name="Truck")
+        photo = SimpleUploadedFile(
+            "huge-photo.jpg",
+            b"x" * (20 * 1024 * 1024 + 1),
+            content_type="image/jpeg",
+        )
+
+        payload = {
+            "year": "2024",
+            "make": "Ford",
+            "model": "F-150",
+            "nickname": "Big Rig",
+            "type": str(vehicle_type.pk),
+            "color": "Blue",
+            "current_mileage": "5400",
+            "vin": "1FTFW1E50RFA12345",
+            "notes": "",
+            "photo": photo,
+        }
+
+        response = self.client.post(reverse("vehicle_create"), payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Photo must be 20 MB or smaller.")
+        self.assertEqual(Vehicle.objects.count(), 0)
 
     def test_service_type_delete_is_blocked_when_in_use(self):
         self.login()

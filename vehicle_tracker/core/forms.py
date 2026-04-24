@@ -1,9 +1,48 @@
 from datetime import date
+from io import BytesIO
+from pathlib import Path
 
 from django import forms
+from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import UserCreationForm
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.forms import BaseInlineFormSet, inlineformset_factory
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .models import LogService, MaintenanceLog, ServiceType, Vehicle, VehicleType
+
+
+MAX_VEHICLE_PHOTO_UPLOAD_MB = 20
+MAX_VEHICLE_PHOTO_UPLOAD_SIZE = MAX_VEHICLE_PHOTO_UPLOAD_MB * 1024 * 1024
+VEHICLE_PHOTO_AUTO_PROCESS_THRESHOLD = 5 * 1024 * 1024
+VEHICLE_PHOTO_MAX_DIMENSION = 2400
+VEHICLE_PHOTO_JPEG_QUALITY = 82
+VEHICLE_PHOTO_WEBP_QUALITY = 82
+IMAGE_RESAMPLING = (
+    Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
+)
+ADAPTIVE_PALETTE = (
+    Image.Palette.ADAPTIVE if hasattr(Image, "Palette") else Image.ADAPTIVE
+)
+
+
+class SignUpForm(UserCreationForm):
+    class Meta(UserCreationForm.Meta):
+        model = get_user_model()
+        fields = ("username", "password1", "password2")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["username"].help_text = (
+            "Use letters, numbers, and @/./+/-/_ only."
+        )
+        self.fields["password1"].help_text = (
+            "Use at least 8 characters and avoid something too common."
+        )
+        self.fields["password2"].help_text = "Enter the same password again."
+
+    def clean_username(self):
+        return self.cleaned_data["username"].strip()
 
 
 class VehicleForm(forms.ModelForm):
@@ -32,7 +71,8 @@ class VehicleForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["type"].queryset = VehicleType.objects.order_by("name")
         self.fields["photo"].help_text = (
-            "Optional. Upload a JPG, PNG, WEBP, or GIF up to 5 MB."
+            f"Optional. Upload a JPG, PNG, WEBP, or GIF up to {MAX_VEHICLE_PHOTO_UPLOAD_MB} MB. "
+            "Large photos are resized and compressed automatically."
         )
 
     def clean_year(self):
@@ -65,12 +105,94 @@ class VehicleForm(forms.ModelForm):
 
     def clean_photo(self):
         photo = self.cleaned_data.get("photo")
-        if photo is not None and photo.size > 5 * 1024 * 1024:
-            raise forms.ValidationError("Photo must be 5 MB or smaller.")
-        return photo
+        if photo is None:
+            return None
+
+        if photo.size > MAX_VEHICLE_PHOTO_UPLOAD_SIZE:
+            raise forms.ValidationError(
+                f"Photo must be {MAX_VEHICLE_PHOTO_UPLOAD_MB} MB or smaller."
+            )
+
+        try:
+            photo.seek(0)
+            with Image.open(photo) as image:
+                if getattr(image, "is_animated", False):
+                    return photo
+                return self._process_vehicle_photo(photo, image)
+        except (UnidentifiedImageError, OSError):
+            raise forms.ValidationError("Upload a valid image file.")
+        finally:
+            photo.seek(0)
 
     def clean_notes(self):
         return self._clean_optional_text("notes")
+
+    def _process_vehicle_photo(self, photo, image):
+        original_name = Path(photo.name or "vehicle-photo.jpg")
+        extension = original_name.suffix.lower()
+        normalized_image = ImageOps.exif_transpose(image)
+        processed_image = normalized_image.copy()
+
+        should_resize = (
+            processed_image.width > VEHICLE_PHOTO_MAX_DIMENSION
+            or processed_image.height > VEHICLE_PHOTO_MAX_DIMENSION
+        )
+        should_reencode = photo.size > VEHICLE_PHOTO_AUTO_PROCESS_THRESHOLD
+
+        if not should_resize and not should_reencode:
+            return photo
+
+        if should_resize:
+            processed_image.thumbnail(
+                (VEHICLE_PHOTO_MAX_DIMENSION, VEHICLE_PHOTO_MAX_DIMENSION),
+                IMAGE_RESAMPLING,
+            )
+
+        output = BytesIO()
+        final_name = original_name.name
+
+        if extension in {".jpg", ".jpeg"}:
+            processed_image = processed_image.convert("RGB")
+            processed_image.save(
+                output,
+                format="JPEG",
+                quality=VEHICLE_PHOTO_JPEG_QUALITY,
+                optimize=True,
+                progressive=True,
+            )
+            content_type = "image/jpeg"
+            final_name = original_name.with_suffix(".jpg").name
+        elif extension == ".png":
+            if processed_image.mode not in {"RGB", "RGBA"}:
+                processed_image = processed_image.convert("RGBA")
+            processed_image.save(output, format="PNG", optimize=True)
+            content_type = "image/png"
+        elif extension == ".webp":
+            if processed_image.mode not in {"RGB", "RGBA"}:
+                processed_image = processed_image.convert("RGBA")
+            processed_image.save(
+                output,
+                format="WEBP",
+                quality=VEHICLE_PHOTO_WEBP_QUALITY,
+                method=6,
+            )
+            content_type = "image/webp"
+        elif extension == ".gif":
+            processed_image = processed_image.convert("P", palette=ADAPTIVE_PALETTE)
+            processed_image.save(output, format="GIF", optimize=True)
+            content_type = "image/gif"
+        else:
+            return photo
+
+        processed_bytes = output.getvalue()
+        if not should_resize and len(processed_bytes) >= photo.size:
+            return photo
+
+        return SimpleUploadedFile(
+            final_name,
+            processed_bytes,
+            content_type=content_type,
+        )
 
     def _clean_optional_text(self, field_name):
         value = self.cleaned_data.get(field_name)

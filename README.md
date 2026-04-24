@@ -9,10 +9,10 @@ The active application in this repository is the Django project under `vehicle_t
 ## Features
 
 - Dashboard with total vehicles, maintenance logs, service types, and total spend
-- Vehicle CRUD with validation for year, mileage, VIN, and optional fields
+- Vehicle CRUD with validation for year, mileage, VIN, optional photo uploads, and automatic image resizing/compression
 - Service type CRUD with protected deletes when a service is already in use
 - Maintenance log CRUD with multiple services per visit
-- Django authentication with login-required app pages
+- Django authentication with login, signup, and login-required app pages
 - Django admin support for all core models
 
 ## Data Model
@@ -96,6 +96,7 @@ The Django settings support simple local development by default.
 - `DJANGO_DEBUG` controls debug mode
 - `DJANGO_ALLOWED_HOSTS` accepts a comma-separated host list
 - `DJANGO_CSRF_TRUSTED_ORIGINS` accepts a comma-separated list of trusted HTTPS origins for deployed environments
+- `DJANGO_MEDIA_ROOT` overrides where uploaded vehicle photos are stored
 - `PGSSLMODE` can be used for PostgreSQL SSL settings when needed
 
 Example PowerShell session:
@@ -120,6 +121,41 @@ Run the test suite:
 ```bash
 py -3 vehicle_tracker\manage.py test
 ```
+
+## Deployment
+
+This repo now includes a Render-ready deployment setup:
+
+- `build.sh` runs `collectstatic` and `migrate`
+- `render.yaml` defines a Python web service and PostgreSQL database
+- `.python-version` pins Python to `3.13`
+- WhiteNoise serves Django static files in production
+
+### Deploy On Render
+
+1. Push the latest code to GitHub.
+2. In Render, create a new Blueprint and connect this repository.
+3. Apply the Blueprint from `render.yaml`.
+4. After the first deploy finishes, open the Render shell and create an admin user:
+
+```bash
+cd vehicle_tracker
+python manage.py createsuperuser
+```
+
+### Uploaded Photos In Production
+
+Vehicle photos are uploaded to Django's `MEDIA_ROOT`.
+
+- Locally, that is `vehicle_tracker/media/`
+- On Render, uploaded files are ephemeral by default
+- If you want photos to persist across deploys/restarts, attach a persistent disk and mount it at:
+
+```text
+/opt/render/project/src/vehicle_tracker/media
+```
+
+If you use a different mount path, set `DJANGO_MEDIA_ROOT` to match it.
 
 ## ERD
 

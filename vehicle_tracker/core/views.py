@@ -1,14 +1,18 @@
 from datetime import date
 
+from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch, Sum
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from .forms import (
     LogServiceFormSet,
     MaintenanceLogForm,
+    SignUpForm,
     ServiceTypeForm,
     VehicleForm,
 )
@@ -28,6 +32,27 @@ def build_log_service_summary(log):
     return ", ".join(
         log_service.service_type.name for log_service in log.log_services.all()
     )
+
+
+def get_post_auth_redirect(request):
+    redirect_to = request.POST.get("next") or request.GET.get("next")
+    if redirect_to and url_has_allowed_host_and_scheme(
+        redirect_to,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect_to
+
+    return settings.LOGIN_REDIRECT_URL
+
+
+def sync_vehicle_current_mileage(vehicle, mileage_at_service):
+    if mileage_at_service is None:
+        return
+
+    if vehicle.current_mileage is None or mileage_at_service > vehicle.current_mileage:
+        vehicle.current_mileage = mileage_at_service
+        vehicle.save(update_fields=["current_mileage"])
 
 
 def get_maintenance_log_queryset():
@@ -65,6 +90,29 @@ def build_maintenance_log_form_context(
         "submit_label": submit_label,
         "maintenance_log": maintenance_log,
     }
+
+
+def signup(request):
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+
+    next_target = request.POST.get("next") or request.GET.get("next", "")
+
+    if request.method == "POST":
+        form = SignUpForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, f"Welcome to RevLog, {user.username}.")
+            return redirect(get_post_auth_redirect(request))
+    else:
+        form = SignUpForm()
+
+    context = {
+        "form": form,
+        "next": next_target,
+    }
+    return render(request, "registration/signup.html", context)
 
 
 @login_required
@@ -169,6 +217,10 @@ def maintenance_log_create(request):
         )
         if form.is_valid() and formset.is_valid():
             maintenance_log = form.save()
+            sync_vehicle_current_mileage(
+                maintenance_log.vehicle,
+                maintenance_log.mileage_at_service,
+            )
             formset.instance = maintenance_log
             formset.save()
             messages.success(
@@ -209,6 +261,10 @@ def maintenance_log_update(request, maintenance_log_id):
         )
         if form.is_valid() and formset.is_valid():
             maintenance_log = form.save()
+            sync_vehicle_current_mileage(
+                maintenance_log.vehicle,
+                maintenance_log.mileage_at_service,
+            )
             formset.save()
             messages.success(
                 request,
