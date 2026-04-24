@@ -212,7 +212,10 @@ LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SECURE_SSL_REDIRECT = get_env_flag("DJANGO_SECURE_SSL_REDIRECT", default=True)
+    SECURE_SSL_REDIRECT = get_env_flag(
+        "DJANGO_SECURE_SSL_REDIRECT",
+        default=not IS_RAILWAY,
+    )
     SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_SECURE_HSTS_SECONDS", "3600"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = get_env_flag(
         "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS",

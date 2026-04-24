@@ -6,6 +6,7 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch, Sum
 from django.db.models.deletion import ProtectedError
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 
@@ -113,6 +114,10 @@ def signup(request):
         "next": next_target,
     }
     return render(request, "registration/signup.html", context)
+
+
+def healthcheck(request):
+    return HttpResponse("ok", content_type="text/plain")
 
 
 @login_required

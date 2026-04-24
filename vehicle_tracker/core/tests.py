@@ -83,6 +83,12 @@ class TestCoreViews(TestCase):
             f"{reverse('login')}?next={reverse('dashboard')}",
         )
 
+    def test_healthcheck_returns_ok_without_login(self):
+        response = self.client.get(reverse("healthcheck"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"ok")
+
     def test_signup_page_loads(self):
         response = self.client.get(reverse("signup"))
 
