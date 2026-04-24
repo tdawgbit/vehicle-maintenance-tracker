@@ -124,19 +124,28 @@ py -3 vehicle_tracker\manage.py test
 
 ## Deployment
 
-This repo now includes a Render-ready deployment setup:
+### Deploy On Railway
 
-- `build.sh` runs `collectstatic` and `migrate`
-- `render.yaml` defines a Python web service and PostgreSQL database
-- `.python-version` pins Python to `3.13`
-- WhiteNoise serves Django static files in production
+This app can be deployed to Railway from the current GitHub repository.
 
-### Deploy On Render
+Recommended Railway setup:
 
-1. Push the latest code to GitHub.
-2. In Render, create a new Blueprint and connect this repository.
-3. Apply the Blueprint from `render.yaml`.
-4. After the first deploy finishes, open the Render shell and create an admin user:
+1. Create a new Railway project.
+2. Add a new service from GitHub and select this repository.
+3. Leave the service `Root Directory` at the repo root (`/`) so Railway can use the checked-in `requirements.txt` and `railway.json`.
+4. In the service `Variables`, set:
+
+```text
+DJANGO_SECRET_KEY=<your-random-secret>
+DJANGO_DEBUG=false
+DJANGO_ALLOWED_HOSTS=${{RAILWAY_PUBLIC_DOMAIN}}
+DJANGO_CSRF_TRUSTED_ORIGINS=https://${{RAILWAY_PUBLIC_DOMAIN}}
+```
+
+5. Add a PostgreSQL database service to the same Railway project.
+6. Copy the database service's `DATABASE_URL` reference variable into the web service.
+7. Generate a public domain for the service.
+8. After the app is live, open a Railway shell and create an admin user:
 
 ```bash
 cd vehicle_tracker
@@ -148,14 +157,14 @@ python manage.py createsuperuser
 Vehicle photos are uploaded to Django's `MEDIA_ROOT`.
 
 - Locally, that is `vehicle_tracker/media/`
-- On Render, uploaded files are ephemeral by default
-- If you want photos to persist across deploys/restarts, attach a persistent disk and mount it at:
+- On Railway, uploaded files are ephemeral by default
+- If you want photos to persist across redeploys/restarts, attach a Railway volume and mount it at:
 
 ```text
-/opt/render/project/src/vehicle_tracker/media
+/app/media
 ```
 
-If you use a different mount path, set `DJANGO_MEDIA_ROOT` to match it.
+When a Railway volume is attached, the app will automatically use `RAILWAY_VOLUME_MOUNT_PATH` as `MEDIA_ROOT`. You can still override that explicitly with `DJANGO_MEDIA_ROOT`.
 
 ## ERD
 

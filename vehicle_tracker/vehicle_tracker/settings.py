@@ -19,6 +19,9 @@ from django.core.exceptions import ImproperlyConfigured
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 IS_RENDER = bool(os.environ.get("RENDER"))
+IS_RAILWAY = bool(os.environ.get("RAILWAY_ENVIRONMENT")) or bool(
+    os.environ.get("RAILWAY_PROJECT_ID")
+)
 
 
 def get_env_flag(name, default=False):
@@ -70,7 +73,7 @@ SECRET_KEY = os.environ.get(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = get_env_flag("DJANGO_DEBUG", default=not IS_RENDER)
+DEBUG = get_env_flag("DJANGO_DEBUG", default=not (IS_RENDER or IS_RAILWAY))
 if not DEBUG and SECRET_KEY == "django-insecure-local-dev-key-change-me":
     raise ImproperlyConfigured(
         "DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false."
@@ -82,6 +85,14 @@ RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
     CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
+
+RAILWAY_PUBLIC_DOMAIN = os.environ.get("RAILWAY_PUBLIC_DOMAIN")
+if RAILWAY_PUBLIC_DOMAIN:
+    ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
+    CSRF_TRUSTED_ORIGINS.append(f"https://{RAILWAY_PUBLIC_DOMAIN}")
+
+if IS_RAILWAY:
+    ALLOWED_HOSTS.append("healthcheck.railway.app")
 
 # Remove duplicates while preserving order.
 ALLOWED_HOSTS = list(dict.fromkeys(ALLOWED_HOSTS))
@@ -188,7 +199,12 @@ if not DEBUG:
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     }
 MEDIA_URL = "/media/"
-MEDIA_ROOT = Path(os.environ.get("DJANGO_MEDIA_ROOT", str(BASE_DIR / "media")))
+MEDIA_ROOT = Path(
+    os.environ.get(
+        "DJANGO_MEDIA_ROOT",
+        os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", str(BASE_DIR / "media")),
+    )
+)
 
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"

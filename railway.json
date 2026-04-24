@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "RAILPACK",
+    "buildCommand": "pip install -r requirements.txt"
+  },
+  "deploy": {
+    "preDeployCommand": "cd vehicle_tracker && python manage.py migrate && python manage.py collectstatic --noinput",
+    "startCommand": "cd vehicle_tracker && gunicorn vehicle_tracker.wsgi:application --bind 0.0.0.0:$PORT",
+    "healthcheckPath": "/accounts/login/",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
