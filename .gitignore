@@ -8,6 +8,8 @@ __pycache__/
 venv/
 vehicle_tracker/venv/
 staticfiles/
+vehicle_tracker/media/
+vehicle_tracker/core/tmp*/
 vehicle_tracker/runserver.pid
 vehicle_tracker/runserver.stdout.log
 vehicle_tracker/runserver.stderr.log

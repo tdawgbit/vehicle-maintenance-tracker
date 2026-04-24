@@ -10,9 +10,23 @@ class VehicleTypeAdmin(admin.ModelAdmin):
 
 @admin.register(Vehicle)
 class VehicleAdmin(admin.ModelAdmin):
-    list_display = ("id", "year", "make", "model", "nickname", "type", "current_mileage", "vin")
+    list_display = (
+        "id",
+        "year",
+        "make",
+        "model",
+        "nickname",
+        "type",
+        "has_photo",
+        "current_mileage",
+        "vin",
+    )
     list_filter = ("type", "make", "year")
     search_fields = ("make", "model", "nickname", "vin")
+
+    @admin.display(boolean=True, description="Photo")
+    def has_photo(self, obj):
+        return bool(obj.photo)
 
 
 @admin.register(ServiceType)

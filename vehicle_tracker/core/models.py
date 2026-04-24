@@ -1,3 +1,4 @@
+from django.core.validators import FileExtensionValidator
 from django.db import models
 
 
@@ -26,6 +27,16 @@ class Vehicle(models.Model):
     color = models.CharField(max_length=50, blank=True, null=True)
     current_mileage = models.IntegerField(blank=True, null=True)
     vin = models.CharField(max_length=50, unique=True, blank=True, null=True)
+    photo = models.FileField(
+        upload_to="vehicle_photos/",
+        blank=True,
+        null=True,
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=["jpg", "jpeg", "png", "webp", "gif"]
+            )
+        ],
+    )
     notes = models.TextField(blank=True, null=True)
 
     class Meta:

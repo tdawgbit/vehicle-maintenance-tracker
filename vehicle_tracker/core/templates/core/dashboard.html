@@ -1,10 +1,10 @@
 {% extends "core/base.html" %}
 
-{% block title %}Dashboard | Vehicle Maintenance Tracker{% endblock %}
+{% block title %}RevLog | Vehicle Maintenance Tracker{% endblock %}
 {% block eyebrow %}Operations Overview{% endblock %}
-{% block page_title %}Keep Every Service In Motion{% endblock %}
+{% block page_title %}RevLog{% endblock %}
 {% block page_subtitle %}
-    <p class="page-subtitle">Welcome back, {{ request.user.username }}. Track your garage, recent work, and total spend from one cleaner control room.</p>
+    <p class="page-subtitle">Welcome back, {{ request.user.username }}. Track your garage, recent work, and total spend from one cleaner control room with stronger visuals.</p>
 {% endblock %}
 
 {% block content %}
@@ -59,6 +59,12 @@
                 <div class="card-grid stagger-grid">
                     {% for status in vehicle_statuses %}
                         <article class="record-card">
+                            {% if status.vehicle.photo %}
+                                <div class="vehicle-media vehicle-media--dashboard">
+                                    <img src="{{ status.vehicle.photo.url }}" alt="{{ status.vehicle_label }}">
+                                </div>
+                            {% endif %}
+
                             <div class="record-header">
                                 <div>
                                     <h3 class="card-title">{{ status.vehicle_label }}</h3>

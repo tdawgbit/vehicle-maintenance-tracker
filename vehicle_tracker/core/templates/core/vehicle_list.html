@@ -4,7 +4,7 @@
 {% block eyebrow %}Garage{% endblock %}
 {% block page_title %}Vehicles{% endblock %}
 {% block page_subtitle %}
-    <p class="page-subtitle">Keep your collection organized with cleaner details, mileage snapshots, and quick editing controls.</p>
+    <p class="page-subtitle">A cleaner garage wall for your collection, with bold labels, vehicle photos, and quick controls.</p>
 {% endblock %}
 
 {% block content %}
@@ -21,9 +21,19 @@
         </div>
 
         {% if vehicles %}
-            <div class="card-grid stagger-grid">
+            <div class="card-grid stagger-grid vehicle-gallery">
                 {% for vehicle in vehicles %}
-                    <article class="record-card">
+                    <article class="record-card vehicle-card">
+                        {% if vehicle.photo %}
+                            <div class="vehicle-media">
+                                <img src="{{ vehicle.photo.url }}" alt="{{ vehicle }}">
+                            </div>
+                        {% else %}
+                            <div class="vehicle-media vehicle-media--placeholder">
+                                <span>{{ vehicle.make|slice:":1" }}{{ vehicle.model|slice:":1" }}</span>
+                            </div>
+                        {% endif %}
+
                         <div class="record-header">
                             <div>
                                 <h3 class="card-title">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</h3>

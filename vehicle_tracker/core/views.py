@@ -107,6 +107,7 @@ def dashboard(request):
 
         vehicle_statuses.append(
             {
+                "vehicle": vehicle,
                 "vehicle_label": build_vehicle_label(vehicle),
                 "latest_log": latest_log,
                 "latest_services": latest_services,
@@ -261,7 +262,7 @@ def vehicle_list(request):
 @login_required
 def vehicle_create(request):
     if request.method == "POST":
-        form = VehicleForm(request.POST)
+        form = VehicleForm(request.POST, request.FILES)
         if form.is_valid():
             vehicle = form.save()
             messages.success(request, f"{build_vehicle_label(vehicle)} added successfully.")
@@ -282,7 +283,7 @@ def vehicle_update(request, vehicle_id):
     vehicle = get_object_or_404(Vehicle, pk=vehicle_id)
 
     if request.method == "POST":
-        form = VehicleForm(request.POST, instance=vehicle)
+        form = VehicleForm(request.POST, request.FILES, instance=vehicle)
         if form.is_valid():
             vehicle = form.save()
             messages.success(request, f"{build_vehicle_label(vehicle)} updated successfully.")

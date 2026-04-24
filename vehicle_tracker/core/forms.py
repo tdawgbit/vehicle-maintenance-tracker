@@ -18,17 +18,22 @@ class VehicleForm(forms.ModelForm):
             "color",
             "current_mileage",
             "vin",
+            "photo",
             "notes",
         ]
         widgets = {
             "year": forms.NumberInput(attrs={"min": 1900, "max": date.today().year + 1}),
             "current_mileage": forms.NumberInput(attrs={"min": 0}),
+            "photo": forms.FileInput(attrs={"accept": "image/*"}),
             "notes": forms.Textarea(attrs={"rows": 4}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["type"].queryset = VehicleType.objects.order_by("name")
+        self.fields["photo"].help_text = (
+            "Optional. Upload a JPG, PNG, WEBP, or GIF up to 5 MB."
+        )
 
     def clean_year(self):
         year = self.cleaned_data["year"]
@@ -57,6 +62,12 @@ class VehicleForm(forms.ModelForm):
 
     def clean_vin(self):
         return self._clean_optional_text("vin")
+
+    def clean_photo(self):
+        photo = self.cleaned_data.get("photo")
+        if photo is not None and photo.size > 5 * 1024 * 1024:
+            raise forms.ValidationError("Photo must be 5 MB or smaller.")
+        return photo
 
     def clean_notes(self):
         return self._clean_optional_text("notes")
@@ -171,21 +182,14 @@ class MaintenanceLogForm(forms.ModelForm):
 class LogServiceForm(forms.ModelForm):
     class Meta:
         model = LogService
-        fields = ["service_type", "cost", "notes"]
+        fields = ["service_type", "notes"]
         widgets = {
-            "cost": forms.NumberInput(attrs={"min": 0, "step": "0.01"}),
             "notes": forms.TextInput(),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["service_type"].queryset = ServiceType.objects.order_by("name")
-
-    def clean_cost(self):
-        cost = self.cleaned_data.get("cost")
-        if cost is not None and cost < 0:
-            raise forms.ValidationError("Service cost must be 0 or greater.")
-        return cost
 
     def clean_notes(self):
         value = self.cleaned_data.get("notes")
@@ -214,9 +218,8 @@ class BaseLogServiceFormSet(BaseInlineFormSet):
                 continue
 
             service_type = form.cleaned_data.get("service_type")
-            cost = form.cleaned_data.get("cost")
             notes = form.cleaned_data.get("notes")
-            has_details = cost is not None or bool(notes)
+            has_details = bool(notes)
 
             if not service_type and not has_details:
                 continue

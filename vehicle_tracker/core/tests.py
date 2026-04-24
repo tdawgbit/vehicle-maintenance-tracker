@@ -1,9 +1,12 @@
 from datetime import date, timedelta
 from decimal import Decimal
 from io import StringIO
+from pathlib import Path
+import shutil
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
@@ -44,7 +47,6 @@ class TestCoreViews(TestCase):
 
         for index, row in enumerate(rows):
             payload[f"services-{index}-service_type"] = row.get("service_type", "")
-            payload[f"services-{index}-cost"] = row.get("cost", "")
             payload[f"services-{index}-notes"] = row.get("notes", "")
 
         return payload
@@ -90,12 +92,10 @@ class TestCoreViews(TestCase):
                 [
                     {
                         "service_type": str(oil_change.pk),
-                        "cost": "79.99",
                         "notes": "  Synthetic oil  ",
                     },
                     {
                         "service_type": str(tire_rotation.pk),
-                        "cost": "70.00",
                         "notes": "  Front to back  ",
                     },
                 ]
@@ -116,15 +116,14 @@ class TestCoreViews(TestCase):
         log_services = list(
             maintenance_log.log_services.order_by("service_type__name").values_list(
                 "service_type__name",
-                "cost",
                 "notes",
             )
         )
         self.assertEqual(
             log_services,
             [
-                ("Oil Change", Decimal("79.99"), "Synthetic oil"),
-                ("Tire Rotation", Decimal("70.00"), "Front to back"),
+                ("Oil Change", "Synthetic oil"),
+                ("Tire Rotation", "Front to back"),
             ],
         )
 
@@ -146,12 +145,10 @@ class TestCoreViews(TestCase):
                 [
                     {
                         "service_type": str(oil_change.pk),
-                        "cost": "60.00",
                         "notes": "",
                     },
                     {
                         "service_type": str(oil_change.pk),
-                        "cost": "60.00",
                         "notes": "",
                     },
                 ]
@@ -190,6 +187,44 @@ class TestCoreViews(TestCase):
 
         self.assertContains(response, reverse("maintenance_log_update", args=[second_log.pk]))
         self.assertNotContains(response, reverse("maintenance_log_update", args=[first_log.pk]))
+
+    def test_vehicle_create_saves_uploaded_photo(self):
+        self.login()
+        vehicle_type = VehicleType.objects.create(name="SUV")
+        photo = SimpleUploadedFile(
+            "garage-hero.jpg",
+            b"fake-image-content",
+            content_type="image/jpeg",
+        )
+
+        payload = {
+            "year": "2022",
+            "make": "Ford",
+            "model": "Bronco",
+            "nickname": " Trail Rig ",
+            "type": str(vehicle_type.pk),
+            "color": "Green",
+            "current_mileage": "12345",
+            "vin": "1FMDE5CH9NLA12345",
+            "notes": "  Ready for road trips.  ",
+            "photo": photo,
+        }
+
+        media_root = Path(__file__).resolve().parent / "test_media_uploads"
+        (media_root / "vehicle_photos").mkdir(parents=True, exist_ok=True)
+
+        try:
+            with self.settings(MEDIA_ROOT=media_root):
+                response = self.client.post(reverse("vehicle_create"), payload)
+
+                self.assertRedirects(response, reverse("vehicle_list"))
+
+                vehicle = Vehicle.objects.get()
+                self.assertEqual(vehicle.nickname, "Trail Rig")
+                self.assertTrue(vehicle.photo.name.startswith("vehicle_photos/"))
+                self.assertTrue(Path(vehicle.photo.path).exists())
+        finally:
+            shutil.rmtree(media_root, ignore_errors=True)
 
     def test_service_type_delete_is_blocked_when_in_use(self):
         self.login()

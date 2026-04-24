@@ -8,7 +8,7 @@
     {% if maintenance_log %}
         <p class="page-subtitle">Update the maintenance entry for {{ maintenance_log.vehicle }} from {{ maintenance_log.log_date|date:"M d, Y" }} without losing the linked service details.</p>
     {% else %}
-        <p class="page-subtitle">Record a maintenance visit with vehicle details, total cost, and every service performed in one polished form.</p>
+        <p class="page-subtitle">Record a maintenance visit with vehicle details, one total cost, and every service performed in one polished form.</p>
     {% endif %}
 {% endblock %}
 
@@ -27,7 +27,7 @@
             <div class="section-header">
                 <div>
                     <h2 class="section-title">Visit Details</h2>
-                    <p class="section-subtitle">Capture the high-level info for the service visit before adding the individual service rows.</p>
+                    <p class="section-subtitle">Capture the high-level info for the service visit, including the single total cost for the whole appointment.</p>
                 </div>
             </div>
 
@@ -76,16 +76,6 @@
                                 </label>
                                 {{ service_form.service_type }}
                                 {% for error in service_form.service_type.errors %}
-                                    <div class="field-error">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-
-                            <div class="service-grid">
-                                <label for="{{ service_form.cost.id_for_label }}">
-                                    {{ service_form.cost.label }}
-                                </label>
-                                {{ service_form.cost }}
-                                {% for error in service_form.cost.errors %}
                                     <div class="field-error">{{ error }}</div>
                                 {% endfor %}
                             </div>
