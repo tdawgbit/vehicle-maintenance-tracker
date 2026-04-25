@@ -68,7 +68,10 @@ class VehicleForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+        if self.user is not None:
+            self.instance.owner = self.user
         self.fields["type"].queryset = VehicleType.objects.order_by("name")
         self.fields["photo"].help_text = (
             f"Optional. Upload a JPG, PNG, WEBP, or GIF up to {MAX_VEHICLE_PHOTO_UPLOAD_MB} MB. "
@@ -218,6 +221,12 @@ class ServiceTypeForm(forms.ModelForm):
             "default_interval_days": forms.NumberInput(attrs={"min": 0, "step": 30}),
         }
 
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        if self.user is not None:
+            self.instance.owner = self.user
+
     def clean_name(self):
         return self.cleaned_data["name"].strip()
 
@@ -265,8 +274,12 @@ class MaintenanceLogForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-        self.fields["vehicle"].queryset = Vehicle.objects.order_by("-year", "make", "model")
+        vehicle_queryset = Vehicle.objects.order_by("-year", "make", "model")
+        if user is not None:
+            vehicle_queryset = vehicle_queryset.filter(owner=user)
+        self.fields["vehicle"].queryset = vehicle_queryset
 
     def clean_log_date(self):
         log_date = self.cleaned_data["log_date"]
@@ -310,8 +323,12 @@ class LogServiceForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-        self.fields["service_type"].queryset = ServiceType.objects.order_by("name")
+        service_type_queryset = ServiceType.objects.order_by("name")
+        if user is not None:
+            service_type_queryset = service_type_queryset.filter(owner=user)
+        self.fields["service_type"].queryset = service_type_queryset
 
     def clean_notes(self):
         value = self.cleaned_data.get("notes")
@@ -323,6 +340,16 @@ class LogServiceForm(forms.ModelForm):
 
 
 class BaseLogServiceFormSet(BaseInlineFormSet):
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+
+    def get_form_kwargs(self, index):
+        kwargs = super().get_form_kwargs(index)
+        if self.user is not None:
+            kwargs["user"] = self.user
+        return kwargs
+
     def clean(self):
         super().clean()
 

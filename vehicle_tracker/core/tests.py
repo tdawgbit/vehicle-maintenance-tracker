@@ -20,23 +20,31 @@ class TestCoreViews(TestCase):
             username="tony",
             password="testpass123",
         )
+        self.other_user = get_user_model().objects.create_user(
+            username="casey",
+            password="testpass456",
+        )
 
     def login(self):
         self.client.force_login(self.user)
 
-    def create_vehicle(self, *, nickname="Daily"):
+    def create_vehicle(self, *, owner=None, nickname="Daily", vin=None):
+        owner = owner or self.user
         vehicle_type = VehicleType.objects.create(name=f"Car {VehicleType.objects.count() + 1}")
         return Vehicle.objects.create(
+            owner=owner,
             year=2021,
             make="Toyota",
             model="Corolla",
             nickname=nickname,
             type=vehicle_type,
             current_mileage=25000,
+            vin=vin,
         )
 
-    def create_service_type(self, *, name="Oil Change"):
-        return ServiceType.objects.create(name=name)
+    def create_service_type(self, *, owner=None, name="Oil Change"):
+        owner = owner or self.user
+        return ServiceType.objects.create(owner=owner, name=name)
 
     def build_uploaded_photo(
         self,
@@ -97,7 +105,7 @@ class TestCoreViews(TestCase):
 
     def test_signup_creates_user_and_logs_them_in(self):
         payload = {
-            "username": "casey",
+            "username": "newuser",
             "password1": "RevLogPass123!",
             "password2": "RevLogPass123!",
         }
@@ -105,7 +113,7 @@ class TestCoreViews(TestCase):
         response = self.client.post(reverse("signup"), payload, follow=True)
 
         self.assertRedirects(response, reverse("dashboard"))
-        self.assertTrue(get_user_model().objects.filter(username="casey").exists())
+        self.assertTrue(get_user_model().objects.filter(username="newuser").exists())
         dashboard_response = self.client.get(reverse("dashboard"))
         self.assertEqual(dashboard_response.status_code, 200)
 
@@ -247,6 +255,61 @@ class TestCoreViews(TestCase):
         self.assertContains(response, reverse("maintenance_log_update", args=[second_log.pk]))
         self.assertNotContains(response, reverse("maintenance_log_update", args=[first_log.pk]))
 
+    def test_dashboard_shows_only_the_logged_in_users_data(self):
+        self.login()
+        own_vehicle = self.create_vehicle(owner=self.user, nickname="Daily")
+        own_service_type = self.create_service_type(owner=self.user, name="Oil Change")
+        other_vehicle = self.create_vehicle(owner=self.other_user, nickname="Weekend")
+        other_service_type = self.create_service_type(
+            owner=self.other_user,
+            name="Oil Change",
+        )
+
+        own_log = MaintenanceLog.objects.create(
+            vehicle=own_vehicle,
+            log_date=date(2026, 4, 4),
+            total_cost=Decimal("75.00"),
+        )
+        other_log = MaintenanceLog.objects.create(
+            vehicle=other_vehicle,
+            log_date=date(2026, 4, 5),
+            total_cost=Decimal("200.00"),
+        )
+        LogService.objects.create(log=own_log, service_type=own_service_type)
+        LogService.objects.create(log=other_log, service_type=other_service_type)
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.context["total_vehicles"], 1)
+        self.assertEqual(response.context["total_logs"], 1)
+        self.assertEqual(response.context["total_service_types"], 1)
+        self.assertEqual(response.context["total_spent"], Decimal("75.00"))
+        self.assertContains(response, "Daily")
+        self.assertNotContains(response, "Weekend")
+
+    def test_vehicle_list_hides_other_users_vehicles(self):
+        self.login()
+        own_vehicle = self.create_vehicle(owner=self.user, nickname="Daily")
+        other_vehicle = self.create_vehicle(owner=self.other_user, nickname="Weekend")
+
+        response = self.client.get(reverse("vehicle_list"))
+
+        self.assertContains(response, own_vehicle.nickname)
+        self.assertNotContains(response, other_vehicle.nickname)
+
+    def test_service_type_list_hides_other_users_service_types(self):
+        self.login()
+        own_service_type = self.create_service_type(owner=self.user, name="Oil Change")
+        other_service_type = self.create_service_type(
+            owner=self.other_user,
+            name="Suspension",
+        )
+
+        response = self.client.get(reverse("service_type_list"))
+
+        self.assertContains(response, own_service_type.name)
+        self.assertNotContains(response, other_service_type.name)
+
     def test_maintenance_log_create_does_not_lower_vehicle_current_mileage(self):
         self.login()
         vehicle = self.create_vehicle()
@@ -310,6 +373,20 @@ class TestCoreViews(TestCase):
                 self.assertTrue(Path(vehicle.photo.path).exists())
         finally:
             shutil.rmtree(media_root, ignore_errors=True)
+
+    def test_vehicle_create_page_restores_default_vehicle_types_when_missing(self):
+        self.login()
+        VehicleType.objects.all().delete()
+
+        response = self.client.get(reverse("vehicle_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertQuerySetEqual(
+            VehicleType.objects.order_by("name").values_list("name", flat=True),
+            ["Car", "Motorcycle", "Truck"],
+            transform=lambda value: value,
+        )
+        self.assertContains(response, '<option value="', count=4)
 
     def test_vehicle_create_resizes_large_photo_dimensions(self):
         self.login()
@@ -398,6 +475,90 @@ class TestCoreViews(TestCase):
             "This service type cannot be deleted because it is used in maintenance logs.",
         )
         self.assertTrue(ServiceType.objects.filter(pk=service_type.pk).exists())
+
+    def test_duplicate_service_type_names_are_allowed_for_different_users(self):
+        self.create_service_type(owner=self.user, name="Brake Service")
+        self.create_service_type(owner=self.other_user, name="Brake Service")
+
+        self.assertEqual(
+            ServiceType.objects.filter(name="Brake Service").count(),
+            2,
+        )
+
+    def test_vehicle_update_returns_404_for_other_users_vehicle(self):
+        self.login()
+        other_vehicle = self.create_vehicle(owner=self.other_user, nickname="Weekend")
+
+        response = self.client.get(reverse("vehicle_update", args=[other_vehicle.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_service_type_update_returns_404_for_other_users_service_type(self):
+        self.login()
+        other_service_type = self.create_service_type(
+            owner=self.other_user,
+            name="Brake Service",
+        )
+
+        response = self.client.get(
+            reverse("service_type_update", args=[other_service_type.pk])
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_maintenance_log_delete_returns_404_for_other_users_log(self):
+        self.login()
+        other_vehicle = self.create_vehicle(owner=self.other_user, nickname="Weekend")
+        other_service_type = self.create_service_type(
+            owner=self.other_user,
+            name="Brake Service",
+        )
+        other_log = MaintenanceLog.objects.create(
+            vehicle=other_vehicle,
+            log_date=date(2026, 4, 8),
+            total_cost=Decimal("99.00"),
+        )
+        LogService.objects.create(log=other_log, service_type=other_service_type)
+
+        response = self.client.get(
+            reverse("maintenance_log_delete", args=[other_log.pk])
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_maintenance_log_create_rejects_other_users_service_type(self):
+        self.login()
+        vehicle = self.create_vehicle(owner=self.user)
+        self.create_service_type(owner=self.user, name="Oil Change")
+        other_service_type = self.create_service_type(
+            owner=self.other_user,
+            name="Suspension",
+        )
+
+        payload = {
+            "vehicle": str(vehicle.pk),
+            "log_date": "2026-04-22",
+            "mileage_at_service": "30200",
+            "shop_name": "Garage",
+            "total_cost": "89.00",
+            "notes": "",
+        }
+        payload.update(
+            self.build_formset_payload(
+                [
+                    {
+                        "service_type": str(other_service_type.pk),
+                        "notes": "",
+                    },
+                ]
+            )
+        )
+
+        response = self.client.post(reverse("maintenance_log_create"), payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Select a valid choice")
+        self.assertEqual(MaintenanceLog.objects.count(), 0)
 
 
 class TestManagementCommands(TestCase):

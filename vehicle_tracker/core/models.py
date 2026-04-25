@@ -1,5 +1,7 @@
+from django.conf import settings
 from django.core.validators import FileExtensionValidator
 from django.db import models
+from django.db.models import Q
 
 
 class VehicleType(models.Model):
@@ -14,6 +16,13 @@ class VehicleType(models.Model):
 
 
 class Vehicle(models.Model):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="vehicles",
+        blank=True,
+        null=True,
+    )
     year = models.IntegerField()
     make = models.CharField(max_length=100)
     model = models.CharField(max_length=100)
@@ -26,7 +35,7 @@ class Vehicle(models.Model):
     )
     color = models.CharField(max_length=50, blank=True, null=True)
     current_mileage = models.IntegerField(blank=True, null=True)
-    vin = models.CharField(max_length=50, unique=True, blank=True, null=True)
+    vin = models.CharField(max_length=50, blank=True, null=True)
     photo = models.FileField(
         upload_to="vehicle_photos/",
         blank=True,
@@ -42,6 +51,13 @@ class Vehicle(models.Model):
     class Meta:
         db_table = "vehicles"
         ordering = ["-year", "make", "model"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "vin"],
+                condition=Q(vin__isnull=False),
+                name="unique_vehicle_vin_per_owner",
+            )
+        ]
 
     def __str__(self):
         base = f"{self.year} {self.make} {self.model}"
@@ -49,7 +65,14 @@ class Vehicle(models.Model):
 
 
 class ServiceType(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="service_types",
+        blank=True,
+        null=True,
+    )
+    name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     default_interval_miles = models.IntegerField(blank=True, null=True)
     default_interval_days = models.IntegerField(blank=True, null=True)
@@ -57,6 +80,12 @@ class ServiceType(models.Model):
     class Meta:
         db_table = "service_types"
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "name"],
+                name="unique_service_type_name_per_owner",
+            )
+        ]
 
     def __str__(self):
         return self.name

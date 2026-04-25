@@ -12,6 +12,7 @@ class VehicleTypeAdmin(admin.ModelAdmin):
 class VehicleAdmin(admin.ModelAdmin):
     list_display = (
         "id",
+        "owner",
         "year",
         "make",
         "model",
@@ -21,8 +22,8 @@ class VehicleAdmin(admin.ModelAdmin):
         "current_mileage",
         "vin",
     )
-    list_filter = ("type", "make", "year")
-    search_fields = ("make", "model", "nickname", "vin")
+    list_filter = ("owner", "type", "make", "year")
+    search_fields = ("owner__username", "make", "model", "nickname", "vin")
 
     @admin.display(boolean=True, description="Photo")
     def has_photo(self, obj):
@@ -31,8 +32,9 @@ class VehicleAdmin(admin.ModelAdmin):
 
 @admin.register(ServiceType)
 class ServiceTypeAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "default_interval_miles", "default_interval_days")
-    search_fields = ("name",)
+    list_display = ("id", "owner", "name", "default_interval_miles", "default_interval_days")
+    list_filter = ("owner",)
+    search_fields = ("owner__username", "name")
 
 
 class LogServiceInline(admin.TabularInline):
@@ -42,10 +44,14 @@ class LogServiceInline(admin.TabularInline):
 
 @admin.register(MaintenanceLog)
 class MaintenanceLogAdmin(admin.ModelAdmin):
-    list_display = ("id", "vehicle", "log_date", "mileage_at_service", "shop_name", "total_cost")
-    list_filter = ("log_date", "vehicle__make")
-    search_fields = ("vehicle__make", "vehicle__model", "shop_name", "notes")
+    list_display = ("id", "vehicle", "vehicle_owner", "log_date", "mileage_at_service", "shop_name", "total_cost")
+    list_filter = ("log_date", "vehicle__owner", "vehicle__make")
+    search_fields = ("vehicle__owner__username", "vehicle__make", "vehicle__model", "shop_name", "notes")
     inlines = [LogServiceInline]
+
+    @admin.display(ordering="vehicle__owner", description="Owner")
+    def vehicle_owner(self, obj):
+        return obj.vehicle.owner
 
 
 @admin.register(LogService)

@@ -17,7 +17,9 @@ from .forms import (
     ServiceTypeForm,
     VehicleForm,
 )
-from .models import LogService, MaintenanceLog, ServiceType, Vehicle
+from .models import LogService, MaintenanceLog, ServiceType, Vehicle, VehicleType
+
+DEFAULT_VEHICLE_TYPE_NAMES = ("Car", "Motorcycle", "Truck")
 
 
 def build_vehicle_label(vehicle):
@@ -56,20 +58,34 @@ def sync_vehicle_current_mileage(vehicle, mileage_at_service):
         vehicle.save(update_fields=["current_mileage"])
 
 
-def get_maintenance_log_queryset():
+def ensure_default_vehicle_types():
+    for name in DEFAULT_VEHICLE_TYPE_NAMES:
+        VehicleType.objects.get_or_create(name=name)
+
+
+def get_vehicle_queryset(user):
+    return Vehicle.objects.filter(owner=user).select_related("type")
+
+
+def get_service_type_queryset(user):
+    return ServiceType.objects.filter(owner=user).order_by("name")
+
+
+def get_maintenance_log_queryset(user):
     return (
-        MaintenanceLog.objects.select_related("vehicle")
+        MaintenanceLog.objects.filter(vehicle__owner=user)
+        .select_related("vehicle")
         .prefetch_related("log_services__service_type")
         .order_by("-log_date", "-id")
     )
 
 
 def ensure_maintenance_log_dependencies(request):
-    if not Vehicle.objects.exists():
+    if not get_vehicle_queryset(request.user).exists():
         messages.warning(request, "Add a vehicle before creating a maintenance log.")
         return redirect("vehicle_create")
 
-    if not ServiceType.objects.exists():
+    if not get_service_type_queryset(request.user).exists():
         messages.warning(request, "Add a service type before creating a maintenance log.")
         return redirect("service_type_create")
 
@@ -122,11 +138,10 @@ def healthcheck(request):
 
 @login_required
 def dashboard(request):
-    total_spent = (
-        MaintenanceLog.objects.aggregate(total=Sum("total_cost"))["total"] or 0
-    )
+    maintenance_logs = get_maintenance_log_queryset(request.user)
+    total_spent = maintenance_logs.aggregate(total=Sum("total_cost"))["total"] or 0
 
-    recent_log_objects = get_maintenance_log_queryset()[:10]
+    recent_log_objects = maintenance_logs[:10]
 
     recent_logs = []
     for log in recent_log_objects:
@@ -141,14 +156,12 @@ def dashboard(request):
             }
         )
 
-    vehicles = Vehicle.objects.prefetch_related(
+    vehicles = get_vehicle_queryset(request.user).prefetch_related(
         Prefetch(
             "maintenance_logs",
-            queryset=MaintenanceLog.objects.order_by("-log_date", "-id").prefetch_related(
-                "log_services__service_type"
-            ),
+            queryset=get_maintenance_log_queryset(request.user),
         )
-    ).order_by("-year", "make", "model")
+    )
 
     vehicle_statuses = []
     for vehicle in vehicles:
@@ -168,10 +181,10 @@ def dashboard(request):
         )
 
     context = {
-        "total_vehicles": Vehicle.objects.count(),
-        "total_logs": MaintenanceLog.objects.count(),
+        "total_vehicles": get_vehicle_queryset(request.user).count(),
+        "total_logs": maintenance_logs.count(),
         "total_spent": total_spent,
-        "total_service_types": ServiceType.objects.count(),
+        "total_service_types": get_service_type_queryset(request.user).count(),
         "recent_logs": recent_logs,
         "vehicle_statuses": vehicle_statuses,
     }
@@ -180,8 +193,8 @@ def dashboard(request):
 
 @login_required
 def maintenance_log_list(request):
-    logs = get_maintenance_log_queryset()
-    vehicles = Vehicle.objects.order_by("-year", "make", "model")
+    logs = get_maintenance_log_queryset(request.user)
+    vehicles = get_vehicle_queryset(request.user).order_by("-year", "make", "model")
     selected_vehicle = request.GET.get("vehicle", "").strip()
     date_from = request.GET.get("date_from", "").strip()
     date_to = request.GET.get("date_to", "").strip()
@@ -214,11 +227,12 @@ def maintenance_log_create(request):
     maintenance_log = MaintenanceLog()
 
     if request.method == "POST":
-        form = MaintenanceLogForm(request.POST)
+        form = MaintenanceLogForm(request.POST, user=request.user)
         formset = LogServiceFormSet(
             request.POST,
             instance=maintenance_log,
             prefix="services",
+            user=request.user,
         )
         if form.is_valid() and formset.is_valid():
             maintenance_log = form.save()
@@ -234,11 +248,12 @@ def maintenance_log_create(request):
             )
             return redirect("maintenance_log_list")
     else:
-        form = MaintenanceLogForm(initial={"log_date": date.today()})
+        form = MaintenanceLogForm(initial={"log_date": date.today()}, user=request.user)
         formset = LogServiceFormSet(
             instance=maintenance_log,
             queryset=LogService.objects.none(),
             prefix="services",
+            user=request.user,
         )
 
     context = build_maintenance_log_form_context(
@@ -253,16 +268,21 @@ def maintenance_log_create(request):
 @login_required
 def maintenance_log_update(request, maintenance_log_id):
     maintenance_log = get_object_or_404(
-        get_maintenance_log_queryset(),
+        get_maintenance_log_queryset(request.user),
         pk=maintenance_log_id,
     )
 
     if request.method == "POST":
-        form = MaintenanceLogForm(request.POST, instance=maintenance_log)
+        form = MaintenanceLogForm(
+            request.POST,
+            instance=maintenance_log,
+            user=request.user,
+        )
         formset = LogServiceFormSet(
             request.POST,
             instance=maintenance_log,
             prefix="services",
+            user=request.user,
         )
         if form.is_valid() and formset.is_valid():
             maintenance_log = form.save()
@@ -277,8 +297,12 @@ def maintenance_log_update(request, maintenance_log_id):
             )
             return redirect("maintenance_log_list")
     else:
-        form = MaintenanceLogForm(instance=maintenance_log)
-        formset = LogServiceFormSet(instance=maintenance_log, prefix="services")
+        form = MaintenanceLogForm(instance=maintenance_log, user=request.user)
+        formset = LogServiceFormSet(
+            instance=maintenance_log,
+            prefix="services",
+            user=request.user,
+        )
 
     context = build_maintenance_log_form_context(
         form=form,
@@ -293,7 +317,7 @@ def maintenance_log_update(request, maintenance_log_id):
 @login_required
 def maintenance_log_delete(request, maintenance_log_id):
     maintenance_log = get_object_or_404(
-        get_maintenance_log_queryset(),
+        get_maintenance_log_queryset(request.user),
         pk=maintenance_log_id,
     )
 
@@ -316,20 +340,22 @@ def maintenance_log_delete(request, maintenance_log_id):
 
 @login_required
 def vehicle_list(request):
-    vehicles = Vehicle.objects.select_related("type").order_by("-year", "make", "model")
+    vehicles = get_vehicle_queryset(request.user).order_by("-year", "make", "model")
     return render(request, "core/vehicle_list.html", {"vehicles": vehicles})
 
 
 @login_required
 def vehicle_create(request):
+    ensure_default_vehicle_types()
+
     if request.method == "POST":
-        form = VehicleForm(request.POST, request.FILES)
+        form = VehicleForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             vehicle = form.save()
             messages.success(request, f"{build_vehicle_label(vehicle)} added successfully.")
             return redirect("vehicle_list")
     else:
-        form = VehicleForm(initial={"year": date.today().year})
+        form = VehicleForm(initial={"year": date.today().year}, user=request.user)
 
     context = {
         "form": form,
@@ -341,16 +367,23 @@ def vehicle_create(request):
 
 @login_required
 def vehicle_update(request, vehicle_id):
-    vehicle = get_object_or_404(Vehicle, pk=vehicle_id)
+    ensure_default_vehicle_types()
+
+    vehicle = get_object_or_404(get_vehicle_queryset(request.user), pk=vehicle_id)
 
     if request.method == "POST":
-        form = VehicleForm(request.POST, request.FILES, instance=vehicle)
+        form = VehicleForm(
+            request.POST,
+            request.FILES,
+            instance=vehicle,
+            user=request.user,
+        )
         if form.is_valid():
             vehicle = form.save()
             messages.success(request, f"{build_vehicle_label(vehicle)} updated successfully.")
             return redirect("vehicle_list")
     else:
-        form = VehicleForm(instance=vehicle)
+        form = VehicleForm(instance=vehicle, user=request.user)
 
     context = {
         "form": form,
@@ -363,7 +396,7 @@ def vehicle_update(request, vehicle_id):
 
 @login_required
 def vehicle_delete(request, vehicle_id):
-    vehicle = get_object_or_404(Vehicle, pk=vehicle_id)
+    vehicle = get_object_or_404(get_vehicle_queryset(request.user), pk=vehicle_id)
 
     if request.method == "POST":
         vehicle_label = build_vehicle_label(vehicle)
@@ -376,7 +409,7 @@ def vehicle_delete(request, vehicle_id):
 
 @login_required
 def service_type_list(request):
-    service_types = ServiceType.objects.order_by("name")
+    service_types = get_service_type_queryset(request.user)
     return render(
         request,
         "core/service_type_list.html",
@@ -387,7 +420,7 @@ def service_type_list(request):
 @login_required
 def service_type_create(request):
     if request.method == "POST":
-        form = ServiceTypeForm(request.POST)
+        form = ServiceTypeForm(request.POST, user=request.user)
         if form.is_valid():
             service_type = form.save()
             messages.success(
@@ -396,7 +429,7 @@ def service_type_create(request):
             )
             return redirect("service_type_list")
     else:
-        form = ServiceTypeForm()
+        form = ServiceTypeForm(user=request.user)
 
     context = {
         "form": form,
@@ -408,10 +441,10 @@ def service_type_create(request):
 
 @login_required
 def service_type_update(request, service_type_id):
-    service_type = get_object_or_404(ServiceType, pk=service_type_id)
+    service_type = get_object_or_404(get_service_type_queryset(request.user), pk=service_type_id)
 
     if request.method == "POST":
-        form = ServiceTypeForm(request.POST, instance=service_type)
+        form = ServiceTypeForm(request.POST, instance=service_type, user=request.user)
         if form.is_valid():
             service_type = form.save()
             messages.success(
@@ -420,7 +453,7 @@ def service_type_update(request, service_type_id):
             )
             return redirect("service_type_list")
     else:
-        form = ServiceTypeForm(instance=service_type)
+        form = ServiceTypeForm(instance=service_type, user=request.user)
 
     context = {
         "form": form,
@@ -433,7 +466,7 @@ def service_type_update(request, service_type_id):
 
 @login_required
 def service_type_delete(request, service_type_id):
-    service_type = get_object_or_404(ServiceType, pk=service_type_id)
+    service_type = get_object_or_404(get_service_type_queryset(request.user), pk=service_type_id)
 
     if request.method == "POST":
         service_type_label = build_service_type_label(service_type)
